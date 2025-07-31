@@ -206,6 +206,13 @@
             color: #D1D5DB; /* gray-300 */
         }
         /* Collapsible Section Styles */
+        .collapsible-section {
+            border-bottom: 1px solid #E5E7EB; /* gray-200 */
+            margin-bottom: 1rem;
+        }
+        html.dark .collapsible-section {
+            border-bottom-color: #374151; /* gray-700 */
+        }
         .collapsible-header {
             cursor: pointer;
             padding: 0.75rem 0;
@@ -214,12 +221,9 @@
             align-items: center;
             font-weight: 600;
             color: #1F2937; /* gray-900 */
-            border-bottom: 1px solid #E5E7EB; /* gray-200 */
-            margin-bottom: 1rem;
         }
         html.dark .collapsible-header {
             color: #F9FAFB; /* gray-100 */
-            border-bottom-color: #374151; /* gray-700 */
         }
         .collapsible-content {
             max-height: 0;
@@ -243,6 +247,7 @@
     <div id="main-container">
         <div id="pdf-viewer-container">
             <div id="pdf-viewer" class="bg-gray-200 dark:bg-gray-800">
+                <!-- PDF canvases will be dynamically added here -->
                 <canvas id="drawing-canvas"></canvas>
                 <div id="highlight-layer"></div>
                 <div id="selection-layer"></div>
@@ -298,13 +303,14 @@
                 </button>
             </header>
 
-            <!-- Document Upload Section -->
+            <!-- Document Management & Audio Section -->
             <div class="collapsible-section">
-                <div class="collapsible-header" data-target="upload-content">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Upload</h3>
+                <div class="collapsible-header" data-target="document-management-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Management & Audio</h3>
                     <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </div>
-                <div id="upload-content" class="collapsible-content expanded">
+                <div id="document-management-content" class="collapsible-content expanded">
+                    <!-- Document Upload -->
                     <div class="mb-4">
                         <label for="fileUpload" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 cursor-pointer">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
@@ -313,16 +319,7 @@
                         <input id="fileUpload" type="file" class="hidden" accept=".pdf,.txt,.docx">
                         <p id="fileName" class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center"></p>
                     </div>
-                </div>
-            </div>
-
-            <!-- Document Reading Controls Section -->
-            <div class="collapsible-section mt-4">
-                <div class="collapsible-header" data-target="reading-controls-content">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Reading Controls</h3>
-                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                </div>
-                <div id="reading-controls-content" class="collapsible-content expanded">
+                    <!-- Document Reading Controls -->
                     <div class="mb-4">
                         <label for="voiceSelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Voice (OpenAI)</label>
                         <div class="flex items-center space-x-2 mt-1">
@@ -339,6 +336,32 @@
                         <div class="flex space-x-2 mt-1">
                             <input type="number" id="page-jump-input" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600" min="1">
                             <button id="page-jump-btn" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" disabled>Go</button>
+                        </div>
+                    </div>
+                    <!-- Document Audio Controls -->
+                    <div class="mb-4">
+                        <button id="generateAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400" disabled>
+                            Generate Audio
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <button id="cancelAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed hidden" disabled>
+                            Cancel Audio Generation
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <button id="downloadAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed" disabled>
+                            Download Audio
+                        </button>
+                    </div>
+                    <div id="status-section" class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                        <div class="flex items-center">
+                            <div id="status-loader" class="loader mr-3 hidden"></div>
+                            <p id="status-text"></p>
+                        </div>
+                        <div id="error-section" class="hidden bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-3" role="alert">
+                            <p class="font-bold">Error</p>
+                            <p id="error-text"></p>
                         </div>
                     </div>
                 </div>
@@ -453,41 +476,6 @@
                 </div>
             </div>
 
-            <!-- Document Audio Controls Section -->
-            <div class="collapsible-section mt-4">
-                <div class="collapsible-header" data-target="document-audio-controls-content">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Audio Controls</h3>
-                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                </div>
-                <div id="document-audio-controls-content" class="collapsible-content expanded">
-                    <div class="mb-4">
-                        <button id="generateAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400" disabled>
-                            Generate Audio
-                        </button>
-                    </div>
-                    <div class="mb-4">
-                        <button id="cancelAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed hidden" disabled>
-                            Cancel Audio Generation
-                        </button>
-                    </div>
-                    <div class="mb-4">
-                        <button id="downloadAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed" disabled>
-                            Download Audio
-                        </button>
-                    </div>
-                    <div id="status-section" class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
-                        <div class="flex items-center">
-                            <div id="status-loader" class="loader mr-3 hidden"></div>
-                            <p id="status-text"></p>
-                        </div>
-                        <div id="error-section" class="hidden bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-3" role="alert">
-                            <p class="font-bold">Error</p>
-                            <p id="error-text"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </aside>
     </div>
     <audio id="audioPlayer" class="hidden"></audio>
@@ -545,18 +533,18 @@
             selectionLayer: document.getElementById('selection-layer'),
             searchHighlightLayer: document.getElementById('search-highlight-layer'),
             playerBar: document.getElementById('player-bar'),
-            // Document Audio Controls
+            // Document Audio Controls (now part of Document Management & Audio)
             generateAudioBtn: document.getElementById('generateAudioBtn'),
             cancelAudioBtn: document.getElementById('cancelAudioBtn'),
             downloadAudioBtn: document.getElementById('downloadAudioBtn'),
             // Paste Text to Audio Controls
-            pasteTextarea: document.getElementById('pasteTextarea'), // New
-            generatePastedAudioBtn: document.getElementById('generatePastedAudioBtn'), // New
-            playPausePastedAudio: document.getElementById('playPausePastedAudio'), // New
-            playIconPasted: document.getElementById('playIconPasted'), // New
-            pauseIconPasted: document.getElementById('pauseIconPasted'), // New
-            pastedAudioStatus: document.getElementById('pastedAudioStatus'), // New
-            pastedAudioPlayer: document.getElementById('pastedAudioPlayer'), // New
+            pasteTextarea: document.getElementById('pasteTextarea'),
+            generatePastedAudioBtn: document.getElementById('generatePastedAudioBtn'),
+            playPausePastedAudio: document.getElementById('playPausePastedAudio'),
+            playIconPasted: document.getElementById('playIconPasted'),
+            pauseIconPasted: document.getElementById('pauseIconPasted'),
+            pastedAudioStatus: document.getElementById('pastedAudioStatus'),
+            pastedAudioPlayer: document.getElementById('pastedAudioPlayer'),
 
             voiceSelect: document.getElementById('voiceSelect'),
             voicePreviewBtn: document.getElementById('voicePreviewBtn'),
@@ -650,22 +638,22 @@
         dom.audioPlayer.volume = dom.volumeSlider.value;
         state.drawingContext = dom.drawingCanvas.getContext('2d');
         setupDragAndDrop();
-        setupCollapsibles(); // Initialize collapsible sections
+        setupCollapsibles();
 
         // --- Event Listeners ---
         dom.fileUploadInput.addEventListener('change', handleFileUpload);
-        dom.generateAudioBtn.addEventListener('click', preProcessAllAudio); // For document audio
+        dom.generateAudioBtn.addEventListener('click', preProcessAllAudio);
         dom.cancelAudioBtn.addEventListener('click', cancelAudioGeneration);
         dom.downloadAudioBtn.addEventListener('click', downloadFullAudio);
         dom.voicePreviewBtn.addEventListener('click', previewSelectedVoice);
         dom.askQuestionBtn.addEventListener('click', showAskQuestionModal);
         dom.findKeyConceptsBtn.addEventListener('click', handleFindKeyConcepts);
-        dom.playPauseBtn.addEventListener('click', togglePlayback); // For document audio
+        dom.playPauseBtn.addEventListener('click', togglePlayback);
         dom.sidebarToggle.addEventListener('click', toggleSidebar);
         dom.fullscreenToggle.addEventListener('click', toggleFullScreen);
-        dom.audioPlayer.addEventListener('timeupdate', updateProgress); // For document audio
-        dom.audioPlayer.addEventListener('ended', playNextInPlaylist); // For document audio
-        dom.progressContainer.addEventListener('click', seekInDocument); // For document audio
+        dom.audioPlayer.addEventListener('timeupdate', updateProgress);
+        dom.audioPlayer.addEventListener('ended', playNextInPlaylist);
+        dom.progressContainer.addEventListener('click', seekInDocument);
         dom.zoomInBtn.addEventListener('click', () => changeZoom(0.25));
         dom.zoomOutBtn.addEventListener('click', () => changeZoom(-0.25));
         dom.fitPageBtn.addEventListener('click', fitPageZoom);
@@ -729,9 +717,9 @@
         dom.playPausePastedAudio.addEventListener('click', togglePastedAudioPlayback);
         dom.pastedAudioPlayer.addEventListener('ended', () => {
             state.isPastedAudioPlaying = false;
-            dom.playIconPasted.classList.remove('hidden');
-            dom.pauseIconPasted.classList.add('hidden');
-            dom.pastedAudioStatus.textContent = 'Finished';
+            if (dom.playIconPasted) dom.playIconPasted.classList.remove('hidden');
+            if (dom.pauseIconPasted) dom.pauseIconPasted.classList.add('hidden');
+            if (dom.pastedAudioStatus) dom.pastedAudioStatus.textContent = 'Finished';
         });
 
         // Initial setup for customizable colors
@@ -792,40 +780,66 @@
         }
 
         async function handleFile(file) {
+            console.log('handleFile: Starting file processing for', file.name);
             resetState();
             state.pdfFile = file;
             dom.fileNameDisplay.textContent = file.name;
-            dom.playerBar.classList.remove('hidden'); // Player bar always visible after file load
+            dom.playerBar.classList.remove('hidden');
 
             const fileExtension = file.name.split('.').pop().toLowerCase();
+            console.log('handleFile: Detected extension:', fileExtension);
 
             try {
                 if (fileExtension === 'pdf') {
+                    console.log('handleFile: Processing as PDF...');
                     state.isPdfLoaded = true;
                     setStatus('Loading PDF...', true);
+                    
                     const typedarray = new Uint8Array(await file.arrayBuffer());
-                    state.pdfDoc = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                    console.log('handleFile: ArrayBuffer obtained, length:', typedarray.length);
+
+                    if (typeof pdfjsLib === 'undefined' || !pdfjsLib.getDocument) {
+                        throw new Error("pdf.js library not loaded or initialized correctly.");
+                    }
+
+                    // Attempt to load PDF document
+                    state.pdfDoc = await pdfjsLib.getDocument({ data: typedarray }).promise.catch(err => {
+                        console.error("handleFile: PDF.js getDocument failed:", err);
+                        throw new Error(`Failed to load PDF document: ${err.message || err}`);
+                    });
+                    console.log('handleFile: PDF document loaded successfully, pages:', state.pdfDoc.numPages);
+                    
                     await renderAllPages();
                     setStatus('Extracting text from PDF...', true);
+                    
                     const visionData = await extractTextFromPdf(file);
                     processVisionData(visionData);
                     enablePdfSpecificControls();
+                    console.log('handleFile: PDF processing complete.');
+
                 } else if (fileExtension === 'txt') {
+                    console.log('handleFile: Processing as TXT...');
                     state.isPdfLoaded = false;
                     setStatus('Loading Text File...', true);
                     const text = await file.text();
                     renderPlainText(text);
                     processPlainText(text);
                     disablePdfSpecificControls();
+                    console.log('handleFile: TXT processing complete.');
                 } else if (fileExtension === 'docx') {
+                    console.log('handleFile: Processing as DOCX...');
                     state.isPdfLoaded = false;
                     setStatus('Loading Word Document...', true);
                     const arrayBuffer = await file.arrayBuffer();
+                    if (typeof mammoth === 'undefined' || !mammoth.extractRawText) {
+                        throw new Error("mammoth.js library not loaded or initialized correctly.");
+                    }
                     const { value: { messages } } = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
                     const text = messages.map(msg => msg.value).join('\n');
                     renderPlainText(text);
                     processPlainText(text);
                     disablePdfSpecificControls();
+                    console.log('handleFile: DOCX processing complete.');
                 } else {
                     throw new Error('Unsupported file type. Please upload PDF, TXT, or DOCX.');
                 }
@@ -833,7 +847,7 @@
                 const fileId = `${file.name}-${file.size}`;
                 const savedTime = localStorage.getItem(fileId);
 
-                if (savedTime && state.isPdfLoaded) { // Only resume for PDFs with bounding boxes for now
+                if (savedTime && state.isPdfLoaded) {
                     setStatus(`Ready. Resume from ${formatTime(savedTime)}?`, false);
                     state.resumeTime = parseFloat(savedTime);
                 } else {
@@ -846,6 +860,7 @@
                 dom.voicePreviewBtn.disabled = false;
                 
             } catch (err) {
+                console.error('handleFile: An error occurred during file processing:', err);
                 handleError(err);
                 resetState();
             } finally {
@@ -856,15 +871,10 @@
         async function renderAllPages(newScale) {
             if (newScale) state.pdfScale = newScale;
             
-            dom.pdfViewer.innerHTML = '';
-            // Re-append drawing canvas and layers in correct order
-            dom.pdfViewer.appendChild(dom.drawingCanvas);
-            dom.pdfViewer.appendChild(dom.highlightLayer);
-            dom.pdfViewer.appendChild(dom.selectionLayer);
-            dom.pdfViewer.appendChild(dom.searchHighlightLayer);
+            dom.pdfViewer.innerHTML = ''; // Clear existing content
+            state.pdfPages = []; // Clear previous pages
 
-            state.pdfPages = [];
-
+            // Append PDF canvases first
             for (let i = 1; i <= state.pdfDoc.numPages; i++) {
                 const page = await state.pdfDoc.getPage(i);
                 const viewport = page.getViewport({ scale: state.pdfScale });
@@ -876,6 +886,13 @@
                 state.pdfPages.push({ canvas, viewport });
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             }
+
+            // Then append overlay layers on top of the PDF canvases
+            dom.pdfViewer.appendChild(dom.drawingCanvas);
+            dom.pdfViewer.appendChild(dom.highlightLayer);
+            dom.pdfViewer.appendChild(dom.selectionLayer);
+            dom.pdfViewer.appendChild(dom.searchHighlightLayer);
+
             if (state.searchResults.length > 0) {
                 displaySearchResults();
             }
@@ -884,7 +901,7 @@
 
         function renderPlainText(text) {
             dom.pdfViewer.innerHTML = `<div class="p-8 whitespace-pre-wrap text-lg leading-relaxed dark:text-gray-200">${text}</div>`;
-            // Re-append drawing canvas and layers
+            // Append overlay layers on top of the text content
             dom.pdfViewer.appendChild(dom.drawingCanvas);
             dom.pdfViewer.appendChild(dom.highlightLayer);
             dom.pdfViewer.appendChild(dom.selectionLayer);
@@ -903,10 +920,9 @@
             const paragraphs = text.split(/\n\s*\n/);
             paragraphs.forEach(p => {
                 const cleanedText = p.trim();
-                // Apply header/footer skipping logic to all text chunks
                 if (shouldSkipText(cleanedText)) {
                     console.log("Skipping:", cleanedText);
-                    return; // Skip this chunk
+                    return;
                 }
                 if (cleanedText.length > 0) {
                     state.textChunks.push({
@@ -918,20 +934,16 @@
             });
         }
 
-        // New function to identify and skip headers/footers
         function shouldSkipText(text) {
             const trimmedText = text.trim();
-            // Common patterns for headers/footers/page numbers
-            const pageNumberRegex = /^\s*\d+\s*$/; // Just a number
-            const headerFooterRegex = /^(Chapter\s+\d+|Appendix\s+[A-Z]|\d+\s+Chapter\s+\d+\.\s+.*|Page\s+\d+)$/i; // "Chapter X", "Page X", "90 Chapter 10. Lists"
-            const veryShortLineRegex = /^.{1,10}$/; // Very short lines, could be stray chars or page numbers
+            const pageNumberRegex = /^\s*\d+\s*$/;
+            const headerFooterRegex = /^(Chapter\s+\d+|Appendix\s+[A-Z]|\d+\s+Chapter\s+\d+\.\s+.*|Page\s+\d+)$/i;
+            const veryShortLineRegex = /^.{1,10}$/;
 
-            // Check if text matches any skip patterns
             if (pageNumberRegex.test(trimmedText) || headerFooterRegex.test(trimmedText)) {
                 return true;
             }
-            // Heuristic: if a line is very short and contains mostly non-alphanumeric characters, it might be a separator or noise
-            if (veryShortLineRegex.test(trimmedText) && !/[a-zA-Z0-9]/.test(trimmedText)) {
+            if (veryShortLineRegex.test(trimmedText) && !/[a-zA-Z0-9]/.test(trimmedText)) { // Corrected variable name
                  return true;
             }
             return false;
@@ -980,10 +992,9 @@
                                 }
                             });
                             const cleanedText = paragraphText.trim();
-                            // Apply header/footer skipping logic
                             if (shouldSkipText(cleanedText)) {
                                 console.log("Skipping:", cleanedText);
-                                return; // Skip this chunk
+                                return;
                             }
                             if (cleanedText.length > 0) {
                                 state.textChunks.push({
@@ -1178,11 +1189,10 @@
             if (state.isPlaying) {
                 dom.audioPlayer.play();
             }
-            // Only highlight words for PDFs
             if (state.isPdfLoaded && state.textChunks[track.chunkIndex].words.length > 0) {
                 highlightChunkWords(state.textChunks[track.chunkIndex]);
             } else {
-                clearWordHighlight(); // Clear any old highlights if switching to non-PDF
+                clearWordHighlight();
             }
         }
         
@@ -1204,7 +1214,6 @@
                 localStorage.setItem(fileId, state.elapsedTimeInDocument);
             }
 
-            // Update word highlight based on current time within the chunk (only for PDFs)
             if (state.isPdfLoaded) {
                 const currentTrack = state.playlist[state.currentPlaylistIndex];
                 if (currentTrack && state.textChunks[currentTrack.chunkIndex]) {
@@ -1216,7 +1225,6 @@
                         const timePerWord = totalChunkDuration / chunk.words.length;
                         const currentWordIndex = Math.floor(timeIntoCurrentChunk / timePerWord);
                         highlightIndividualWord(chunk, currentWordIndex);
-                        // Auto-scroll to keep the current word in view
                         const pageInfo = state.pdfPages[chunk.pageNumber - 1];
                         if (pageInfo && chunk.words[currentWordIndex]) {
                             const { canvas, viewport } = pageInfo;
@@ -1225,7 +1233,7 @@
                             const viewerScrollTop = dom.pdfViewer.scrollTop;
                             const viewerHeight = dom.pdfViewer.clientHeight;
 
-                            if (wordY < viewerScrollTop || wordY > viewerScrollTop + viewerHeight - 100) { // 100px buffer
+                            if (wordY < viewerScrollTop || wordY > viewerScrollTop + viewerHeight - 100) {
                                 dom.pdfViewer.scrollTo({ top: wordY - (viewerHeight / 2) + (word.boundingBox.normalizedVertices[2].y - word.boundingBox.normalizedVertices[0].y) * viewport.height / 2, behavior: 'smooth' });
                             }
                         }
@@ -1346,15 +1354,23 @@
         }
         
         function resetState() {
-            pauseAudio(); // Pause document audio
-            state.pastedAudioPlayer.pause(); // Pause pasted audio
-            state.pastedAudioPlayer.src = ''; // Clear pasted audio
+            // Check if audio players exist before interacting with them
+            if (dom.audioPlayer) {
+                dom.audioPlayer.pause();
+                dom.audioPlayer.src = ''; // Clear source
+            }
+            if (dom.pastedAudioPlayer) {
+                dom.pastedAudioPlayer.pause();
+                dom.pastedAudioPlayer.src = ''; // Clear source
+            }
+            
             state.isPastedAudioPlaying = false;
-            dom.playIconPasted.classList.remove('hidden');
-            dom.pauseIconPasted.classList.add('hidden');
-            dom.pastedAudioStatus.textContent = 'Ready';
-            dom.pasteTextarea.value = '';
-            dom.generatePastedAudioBtn.disabled = false;
+            // Check if elements exist before trying to access their classList or textContent
+            if (dom.playIconPasted) dom.playIconPasted.classList.remove('hidden');
+            if (dom.pauseIconPasted) dom.pauseIconPasted.classList.add('hidden');
+            if (dom.pastedAudioStatus) dom.pastedAudioStatus.textContent = 'Ready';
+            if (dom.pasteTextarea) dom.pasteTextarea.value = '';
+            if (dom.generatePastedAudioBtn) dom.generatePastedAudioBtn.disabled = false;
 
             state = { 
                 ...state, 
@@ -1375,21 +1391,23 @@
                 abortController: null,
                 isPdfLoaded: false,
             };
-            dom.progressBar.style.width = '0%';
-            dom.currentTimeDisplay.textContent = '0:00';
-            dom.totalDurationDisplay.textContent = '0:00';
-            dom.playPauseBtn.disabled = true;
-            dom.downloadAudioBtn.disabled = true;
-            dom.generateAudioBtn.disabled = true;
-            dom.cancelAudioBtn.classList.add('hidden');
-            dom.cancelAudioBtn.disabled = true;
-            dom.askQuestionBtn.disabled = true;
-            dom.findKeyConceptsBtn.disabled = true;
-            dom.voicePreviewBtn.disabled = true;
-            dom.searchBtn.disabled = true;
-            dom.searchInput.value = '';
-            dom.searchResultsNav.classList.add('hidden');
-            dom.searchHighlightLayer.innerHTML = '';
+            if (dom.progressBar) dom.progressBar.style.width = '0%';
+            if (dom.currentTimeDisplay) dom.currentTimeDisplay.textContent = '0:00';
+            if (dom.totalDurationDisplay) dom.totalDurationDisplay.textContent = '0:00';
+            if (dom.playPauseBtn) dom.playPauseBtn.disabled = true;
+            if (dom.downloadAudioBtn) dom.downloadAudioBtn.disabled = true;
+            if (dom.generateAudioBtn) dom.generateAudioBtn.disabled = true;
+            if (dom.cancelAudioBtn) {
+                dom.cancelAudioBtn.classList.add('hidden');
+                dom.cancelAudioBtn.disabled = true;
+            }
+            if (dom.askQuestionBtn) dom.askQuestionBtn.disabled = true;
+            if (dom.findKeyConceptsBtn) dom.findKeyConceptsBtn.disabled = true;
+            if (dom.voicePreviewBtn) dom.voicePreviewBtn.disabled = true;
+            if (dom.searchBtn) dom.searchBtn.disabled = true;
+            if (dom.searchInput) dom.searchInput.value = '';
+            if (dom.searchResultsNav) dom.searchResultsNav.classList.add('hidden');
+            if (dom.searchHighlightLayer) dom.searchHighlightLayer.innerHTML = '';
             clearDrawings();
             disablePdfSpecificControls();
         }
@@ -2008,7 +2026,7 @@
             dom.pdfViewer.style.cursor = state.isDrawingMode ? 'crosshair' : (state.isPdfLoaded ? 'text' : 'default');
             
             if (state.isDrawingMode) {
-                clearSelection(); // Clear any active text selection when entering drawing mode
+                clearSelection();
             }
             setStatus(state.isDrawingMode ? 'Drawing mode active.' : 'Drawing mode inactive.', false);
         }
@@ -2064,7 +2082,7 @@
                 dom.pastedAudioPlayer.src = URL.createObjectURL(audioBlob);
                 dom.playPausePastedAudio.disabled = false;
                 dom.pastedAudioStatus.textContent = 'Ready to play.';
-                togglePastedAudioPlayback(true); // Auto-play pasted audio
+                togglePastedAudioPlayback(true);
             } catch (err) {
                 dom.pastedAudioStatus.textContent = `Error: ${err.message}`;
                 console.error("Pasted audio generation failed:", err);
@@ -2079,14 +2097,14 @@
             if (state.isPastedAudioPlaying && !forcePlay) {
                 state.pastedAudioPlayer.pause();
                 state.isPastedAudioPlaying = false;
-                dom.playIconPasted.classList.remove('hidden');
-                dom.pauseIconPasted.classList.add('hidden');
+                if (dom.playIconPasted) dom.playIconPasted.classList.remove('hidden');
+                if (dom.pauseIconPasted) dom.pauseIconPasted.classList.add('hidden');
                 dom.pastedAudioStatus.textContent = 'Paused';
             } else {
                 state.pastedAudioPlayer.play();
                 state.isPastedAudioPlaying = true;
-                dom.playIconPasted.classList.add('hidden');
-                dom.pauseIconPasted.classList.remove('hidden');
+                if (dom.playIconPasted) dom.playIconPasted.classList.add('hidden');
+                if (dom.pauseIconPasted) dom.pauseIconPasted.classList.remove('hidden');
                 dom.pastedAudioStatus.textContent = 'Playing...';
             }
         }
