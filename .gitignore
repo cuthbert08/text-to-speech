@@ -1,0 +1,16 @@
+# Environment variables
+.env
+
+# Vercel deployment metadata
+.vercel
+
+# Node.js dependencies
+node_modules
+
+# macOS specific files
+.DS_Store
+
+# IDE/Editor specific files
+.vscode
+.idea
+.idx

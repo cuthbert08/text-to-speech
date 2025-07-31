@@ -1,0 +1,2114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced PDF to Speech Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.15/mammoth.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 350px;
+            --player-bar-height: 80px;
+            /* Default customizable colors */
+            --word-highlight-color: rgba(0, 0, 255, 0.4); /* Blue */
+            --selection-box-color: rgba(0, 100, 255, 0.2);
+            --selection-border-color: rgba(0, 100, 255, 0.6);
+            --search-highlight-color: rgba(255, 165, 0, 0.4);
+            --current-search-highlight-color: rgba(255, 255, 0, 0.8);
+        }
+        html.dark {
+            color-scheme: dark;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #main-container {
+            flex-grow: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+        #pdf-viewer-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: margin-right 0.3s ease-in-out;
+        }
+        #pdf-viewer {
+            flex-grow: 1;
+            overflow-y: auto;
+            position: relative;
+            padding: 1rem 0;
+            cursor: text;
+        }
+        #pdf-viewer canvas {
+            display: block;
+            margin: 1rem auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        #drawing-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 50;
+            pointer-events: none; /* Crucial: Initially no pointer events */
+        }
+        #drawing-canvas.active {
+            pointer-events: all; /* Enable pointer events when drawing */
+            cursor: crosshair;
+        }
+        #highlight-layer, #selection-layer, #search-highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .highlight {
+            position: absolute;
+            background-color: var(--word-highlight-color);
+            border-radius: 2px;
+        }
+        .word-highlight {
+            position: absolute;
+            background-color: var(--word-highlight-color);
+            border-radius: 1px;
+            pointer-events: none;
+            transition: background-color 0.1s ease-in-out;
+        }
+        .word-highlight.current {
+            background-color: rgba(0, 0, 255, 0.8);
+        }
+        .selection-box {
+            position: absolute;
+            background-color: var(--selection-box-color);
+            border: 1px solid var(--selection-border-color);
+            z-index: 100;
+        }
+        .search-highlight {
+            position: absolute;
+            background-color: var(--search-highlight-color);
+            border-radius: 2px;
+            pointer-events: none;
+        }
+        .search-highlight.current {
+            background-color: var(--current-search-highlight-color);
+        }
+        #explain-btn, #define-btn, #translate-btn, #copy-btn {
+            position: absolute;
+            z-index: 110;
+            pointer-events: all;
+        }
+        #sidebar {
+            width: var(--sidebar-width);
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            flex-shrink: 0;
+            padding: 1.5rem;
+            overflow-y: auto;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(0);
+            z-index: 60;
+        }
+        #main-container.sidebar-hidden #sidebar {
+            transform: translateX(100%);
+        }
+        #sidebar-toggle {
+            position: absolute;
+            top: 50%;
+            right: var(--sidebar-width);
+            transform: translateY(-50%);
+            z-index: 50;
+            border-right: none;
+            padding: 0.75rem 0.25rem;
+            border-radius: 8px 0 0 8px;
+            cursor: pointer;
+            transition: right 0.3s ease-in-out;
+        }
+         #main-container.sidebar-hidden #sidebar-toggle {
+            right: 0;
+        }
+        #player-bar {
+            flex-shrink: 0;
+            height: var(--player-bar-height);
+            padding: 0.75rem 1.5rem;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        #progress-container {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            border-radius: 4px;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #gemini-modal, #ask-question-modal {
+            z-index: 1000;
+        }
+        /* Chat message styling */
+        .chat-message-user {
+            background-color: #3B82F6; /* blue-600 */
+            color: white;
+            align-self: flex-end;
+        }
+        .chat-message-gemini {
+            background-color: #E5E7EB; /* gray-200 */
+            color: #1F2937; /* gray-900 */
+            align-self: flex-start;
+        }
+        html.dark .chat-message-gemini {
+            background-color: #374151; /* gray-700 */
+            color: #F9FAFB; /* gray-100 */
+        }
+        .chat-message-system-error {
+            background-color: #FEE2E2; /* red-100 */
+            color: #B91C1C; /* red-700 */
+        }
+        html.dark .chat-message-system-error {
+            background-color: #7F1D1D; /* red-900/20 */
+            color: #FCA5A5; /* red-400 */
+        }
+        .chat-message-loading {
+            background-color: #D1D5DB; /* gray-300 */
+            color: #4B5563; /* gray-700 */
+        }
+        html.dark .chat-message-loading {
+            background-color: #4B5563; /* gray-600 */
+            color: #D1D5DB; /* gray-300 */
+        }
+        /* Collapsible Section Styles */
+        .collapsible-header {
+            cursor: pointer;
+            padding: 0.75rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #1F2937; /* gray-900 */
+            border-bottom: 1px solid #E5E7EB; /* gray-200 */
+            margin-bottom: 1rem;
+        }
+        html.dark .collapsible-header {
+            color: #F9FAFB; /* gray-100 */
+            border-bottom-color: #374151; /* gray-700 */
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.expanded {
+            max-height: 1000px; /* Arbitrary large value to allow expansion */
+            transition: max-height 0.5s ease-in;
+        }
+        .collapsible-icon {
+            transition: transform 0.3s ease-out;
+        }
+        .collapsible-icon.rotated {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+
+    <div id="main-container">
+        <div id="pdf-viewer-container">
+            <div id="pdf-viewer" class="bg-gray-200 dark:bg-gray-800">
+                <canvas id="drawing-canvas"></canvas>
+                <div id="highlight-layer"></div>
+                <div id="selection-layer"></div>
+                <div id="search-highlight-layer"></div>
+            </div>
+            <footer id="player-bar" class="hidden bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-700">
+                <div id="progress-container" class="bg-gray-200 dark:bg-gray-700">
+                    <div id="progress-bar" class="bg-blue-600"></div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button id="playPause" class="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400" disabled>
+                            <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4.52 16.89A.5.5 0 005 16.5v-13a.5.5 0 00-.74-.43L.52 7.57a.5.5 0 000 .86l15 6.5z"></path></svg>
+                            <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
+                        </button>
+                        <div class="flex items-center space-x-2">
+                             <span id="currentTime" class="text-sm font-mono text-gray-600 dark:text-gray-400">0:00</span>
+                             <span class="text-sm text-gray-400 dark:text-gray-500">/</span>
+                             <span id="totalDuration" class="text-sm font-mono text-gray-600 dark:text-gray-400">0:00</span>
+                        </div>
+                         <button id="playback-speed" class="text-sm font-semibold w-12 text-center p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50" disabled>1x</button>
+                        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" class="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="zoom-out" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50" disabled>
+                            <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path></svg>
+                        </button>
+                        <button id="fit-page" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50" disabled>
+                            <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11 5l-5-5m5 5v-4m0 0h-4"></path></svg>
+                        </button>
+                        <button id="zoom-in" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50" disabled>
+                           <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m-3-3h6"></path></svg>
+                        </button>
+                        <button id="fullscreen-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                             <svg id="fullscreen-enter-icon" class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5"></path></svg>
+                             <svg id="fullscreen-exit-icon" class="w-5 h-5 text-gray-700 dark:text-gray-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h8m-4-4v8"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+        <button id="sidebar-toggle" class="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700">
+            <svg id="sidebar-hide-icon" class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            <svg id="sidebar-show-icon" class="w-5 h-5 text-gray-600 dark:text-gray-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        </button>
+        <aside id="sidebar" class="bg-gray-50 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700">
+            <header class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">PDF Reader</h1>
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <svg id="theme-light-icon" class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <svg id="theme-dark-icon" class="w-5 h-5 text-gray-600 dark:text-gray-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+            </header>
+
+            <!-- Document Upload Section -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" data-target="upload-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Upload</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="upload-content" class="collapsible-content expanded">
+                    <div class="mb-4">
+                        <label for="fileUpload" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 cursor-pointer">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Upload Document (.pdf, .txt, .docx)
+                        </label>
+                        <input id="fileUpload" type="file" class="hidden" accept=".pdf,.txt,.docx">
+                        <p id="fileName" class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Reading Controls Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="reading-controls-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Reading Controls</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="reading-controls-content" class="collapsible-content expanded">
+                    <div class="mb-4">
+                        <label for="voiceSelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Voice (OpenAI)</label>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <select id="voiceSelect" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-white dark:bg-gray-800 dark:border-gray-600"></select>
+                            <button id="voicePreviewBtn" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50" title="Preview voice" disabled>
+                                <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-2 14.5V7.5c0-.414.47-.659.803-.414l6.267 4.5c.333.245.333.643 0 .888l-6.267 4.5c-.333.245-.803 0-.803-.414z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="page-jump" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Jump to Page</label>
+                        <div class="flex space-x-2 mt-1">
+                            <input type="number" id="page-jump-input" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600" min="1">
+                            <button id="page-jump-btn" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" disabled>Go</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Study Tools Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="ai-tools-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">AI Study Tools</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="ai-tools-content" class="collapsible-content expanded">
+                    <div class="mb-4">
+                        <button id="askQuestionBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400" disabled>
+                            💬 Ask a Question about this Document
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <button id="findKeyConceptsBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400" disabled>
+                            💡 Find Key Concepts
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- In-Document Search Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="search-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">In-Document Search</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="search-content" class="collapsible-content expanded">
+                    <div class="mb-4">
+                        <label for="search-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Document</label>
+                        <div class="flex space-x-2 mt-1">
+                            <input type="text" id="search-input" placeholder="Search text..." class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600">
+                            <button id="search-btn" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400" disabled>Search</button>
+                        </div>
+                        <div id="search-results-nav" class="flex justify-between items-center mt-2 hidden">
+                            <button id="prev-search-result" class="px-3 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50" disabled>Prev</button>
+                            <span id="search-result-count" class="text-sm text-gray-600 dark:text-gray-400"></span>
+                            <button id="next-search-result" class="px-3 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50" disabled>Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drawing Tools Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="drawing-tools-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Drawing Tools</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="drawing-tools-content" class="collapsible-content expanded">
+                    <div class="flex space-x-2 mb-2">
+                        <button id="toggleDrawingBtn" class="w-1/2 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-500 hover:bg-red-600">
+                            🖊️ Toggle Drawing
+                        </button>
+                        <button id="clearDrawingBtn" class="w-1/2 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            🗑️ Clear Drawings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customization Options Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="customization-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Customization Options</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="customization-content" class="collapsible-content expanded">
+                    <div class="mb-2">
+                        <label for="wordHighlightColor" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Word Highlight Color</label>
+                        <input type="color" id="wordHighlightColor" value="#0000FF" class="mt-1 w-full h-10 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer">
+                    </div>
+                    <div class="mb-2">
+                        <label for="selectionBoxColor" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Selection Box Color</label>
+                        <input type="color" id="selectionBoxColor" value="#0064FF" class="mt-1 w-full h-10 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer">
+                    </div>
+                    <div class="mb-2">
+                        <label for="searchHighlightColor" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Highlight Color</label>
+                        <input type="color" id="searchHighlightColor" value="#FFA500" class="mt-1 w-full h-10 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text-to-Speech from Paste Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="paste-tts-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Text-to-Speech from Paste</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="paste-tts-content" class="collapsible-content expanded">
+                    <div class="mb-4">
+                        <label for="pasteTextarea" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Paste text here:</label>
+                        <textarea id="pasteTextarea" class="mt-1 block w-full h-32 px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Paste text to generate audio..."></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <button id="generatePastedAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400">
+                            Generate Audio from Pasted Text
+                        </button>
+                    </div>
+                    <div class="flex items-center space-x-2 mb-2">
+                        <button id="playPausePastedAudio" class="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400" disabled>
+                            <svg id="playIconPasted" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4.52 16.89A.5.5 0 005 16.5v-13a.5.5 0 00-.74-.43L.52 7.57a.5.5 0 000 .86l15 6.5z"></path></svg>
+                            <svg id="pauseIconPasted" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
+                        </button>
+                        <span id="pastedAudioStatus" class="text-sm text-gray-600 dark:text-gray-400">Ready</span>
+                    </div>
+                    <audio id="pastedAudioPlayer" class="hidden"></audio>
+                </div>
+            </div>
+
+            <!-- Document Audio Controls Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="document-audio-controls-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Document Audio Controls</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="document-audio-controls-content" class="collapsible-content expanded">
+                    <div class="mb-4">
+                        <button id="generateAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400" disabled>
+                            Generate Audio
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <button id="cancelAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed hidden" disabled>
+                            Cancel Audio Generation
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <button id="downloadAudioBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed" disabled>
+                            Download Audio
+                        </button>
+                    </div>
+                    <div id="status-section" class="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                        <div class="flex items-center">
+                            <div id="status-loader" class="loader mr-3 hidden"></div>
+                            <p id="status-text"></p>
+                        </div>
+                        <div id="error-section" class="hidden bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-3" role="alert">
+                            <p class="font-bold">Error</p>
+                            <p id="error-text"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+    </div>
+    <audio id="audioPlayer" class="hidden"></audio>
+
+    <!-- Gemini Modal (for Explain/Key Concepts/Define/Translate) -->
+    <div id="gemini-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h2 id="modal-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Gemini Response</h2>
+                <button id="modal-close-btn" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="modal-content" class="p-6 overflow-y-auto">
+                <div id="modal-loader" class="loader mx-auto"></div>
+                <p id="modal-text" class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ask Question Modal (Chat Interface) -->
+    <div id="ask-question-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h2 id="ask-question-modal-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Ask a Question about this Document</h2>
+                <button id="ask-question-modal-close-btn" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="chat-history" class="p-6 overflow-y-auto flex-grow space-y-4">
+                <!-- Chat messages will be appended here -->
+                <div class="flex justify-center items-center text-gray-500 dark:text-gray-400 text-sm">
+                    Type your question below to get started.
+                </div>
+            </div>
+            <div class="p-4 border-t dark:border-gray-700 flex items-center space-x-2">
+                <input type="text" id="chat-input" placeholder="Ask your question..." class="flex-grow px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <button id="chat-send-btn" class="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400" disabled>
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l4.45-1.484a1 1 0 00.65-.945V9a1 1 0 112 0v6.591a1 1 0 00.65.945l4.45 1.484a1 1 0 001.17-1.409l-7-14z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
+
+        const dom = {
+            mainContainer: document.getElementById('main-container'),
+            fileUploadInput: document.getElementById('fileUpload'),
+            fileNameDisplay: document.getElementById('fileName'),
+            pdfViewer: document.getElementById('pdf-viewer'),
+            drawingCanvas: document.getElementById('drawing-canvas'),
+            highlightLayer: document.getElementById('highlight-layer'),
+            selectionLayer: document.getElementById('selection-layer'),
+            searchHighlightLayer: document.getElementById('search-highlight-layer'),
+            playerBar: document.getElementById('player-bar'),
+            // Document Audio Controls
+            generateAudioBtn: document.getElementById('generateAudioBtn'),
+            cancelAudioBtn: document.getElementById('cancelAudioBtn'),
+            downloadAudioBtn: document.getElementById('downloadAudioBtn'),
+            // Paste Text to Audio Controls
+            pasteTextarea: document.getElementById('pasteTextarea'), // New
+            generatePastedAudioBtn: document.getElementById('generatePastedAudioBtn'), // New
+            playPausePastedAudio: document.getElementById('playPausePastedAudio'), // New
+            playIconPasted: document.getElementById('playIconPasted'), // New
+            pauseIconPasted: document.getElementById('pauseIconPasted'), // New
+            pastedAudioStatus: document.getElementById('pastedAudioStatus'), // New
+            pastedAudioPlayer: document.getElementById('pastedAudioPlayer'), // New
+
+            voiceSelect: document.getElementById('voiceSelect'),
+            voicePreviewBtn: document.getElementById('voicePreviewBtn'),
+            askQuestionBtn: document.getElementById('askQuestionBtn'),
+            findKeyConceptsBtn: document.getElementById('findKeyConceptsBtn'),
+            playPauseBtn: document.getElementById('playPause'),
+            playIcon: document.getElementById('playIcon'),
+            pauseIcon: document.getElementById('pauseIcon'),
+            audioPlayer: document.getElementById('audioPlayer'),
+            statusLoader: document.getElementById('status-loader'),
+            statusText: document.getElementById('status-text'),
+            errorSection: document.getElementById('error-section'),
+            errorText: document.getElementById('error-text'),
+            sidebarToggle: document.getElementById('sidebar-toggle'),
+            sidebarHideIcon: document.getElementById('sidebar-hide-icon'),
+            sidebarShowIcon: document.getElementById('sidebar-show-icon'),
+            fullscreenToggle: document.getElementById('fullscreen-toggle'),
+            fullscreenEnterIcon: document.getElementById('fullscreen-enter-icon'),
+            fullscreenExitIcon: document.getElementById('fullscreen-exit-icon'),
+            currentTimeDisplay: document.getElementById('currentTime'),
+            totalDurationDisplay: document.getElementById('totalDuration'),
+            progressContainer: document.getElementById('progress-container'),
+            progressBar: document.getElementById('progress-bar'),
+            zoomInBtn: document.getElementById('zoom-in'),
+            zoomOutBtn: document.getElementById('zoom-out'),
+            fitPageBtn: document.getElementById('fit-page'),
+            themeToggle: document.getElementById('theme-toggle'),
+            themeLightIcon: document.getElementById('theme-light-icon'),
+            themeDarkIcon: document.getElementById('theme-dark-icon'),
+            playbackSpeedBtn: document.getElementById('playback-speed'),
+            volumeSlider: document.getElementById('volume-slider'),
+            pageJumpInput: document.getElementById('page-jump-input'),
+            pageJumpBtn: document.getElementById('page-jump-btn'),
+            geminiModal: document.getElementById('gemini-modal'),
+            modalTitle: document.getElementById('modal-title'),
+            modalContent: document.getElementById('modal-content'),
+            modalLoader: document.getElementById('modal-loader'),
+            modalText: document.getElementById('modal-text'),
+            modalCloseBtn: document.getElementById('modal-close-btn'),
+            askQuestionModal: document.getElementById('ask-question-modal'),
+            askQuestionModalCloseBtn: document.getElementById('ask-question-modal-close-btn'),
+            chatHistory: document.getElementById('chat-history'),
+            chatInput: document.getElementById('chat-input'),
+            chatSendBtn: document.getElementById('chat-send-btn'),
+            searchInput: document.getElementById('search-input'),
+            searchBtn: document.getElementById('search-btn'),
+            searchResultsNav: document.getElementById('search-results-nav'),
+            prevSearchResultBtn: document.getElementById('prev-search-result'),
+            nextSearchResultBtn: document.getElementById('next-search-result'),
+            searchResultCount: document.getElementById('search-result-count'),
+            toggleDrawingBtn: document.getElementById('toggleDrawingBtn'),
+            clearDrawingBtn: document.getElementById('clearDrawingBtn'),
+            wordHighlightColorInput: document.getElementById('wordHighlightColor'),
+            selectionBoxColorInput: document.getElementById('selectionBoxColor'),
+            searchHighlightColorInput: document.getElementById('searchHighlightColor'),
+        };
+
+        let state = {
+            pdfDoc: null,
+            pdfFile: null,
+            pdfPages: [],
+            pdfScale: 1.5,
+            textChunks: [], // Main document text chunks
+            playlist: [], // Main document audio playlist
+            currentPlaylistIndex: 0,
+            totalAudioDuration: 0,
+            elapsedTimeInDocument: 0,
+            isPlaying: false,
+            playbackRates: [0.75, 1, 1.5, 2],
+            currentRateIndex: 1,
+            selection: { startX: 0, startY: 0, endX: 0, endY: 0, isSelecting: false },
+            resumeTime: null,
+            chatMessages: [],
+            searchResults: [],
+            currentSearchResultIndex: -1,
+            currentWordHighlight: null,
+            abortController: null, // For main document audio generation
+            isPdfLoaded: false,
+            isDrawingMode: false,
+            drawingContext: null,
+            isDrawing: false,
+            lastX: 0,
+            lastY: 0,
+            pastedAudioBlob: null, // New: Stores audio for pasted text
+            isPastedAudioPlaying: false, // New: State for pasted audio playback
+        };
+
+        // --- Initialization ---
+        populateVoices();
+        initTheme();
+        dom.audioPlayer.volume = dom.volumeSlider.value;
+        state.drawingContext = dom.drawingCanvas.getContext('2d');
+        setupDragAndDrop();
+        setupCollapsibles(); // Initialize collapsible sections
+
+        // --- Event Listeners ---
+        dom.fileUploadInput.addEventListener('change', handleFileUpload);
+        dom.generateAudioBtn.addEventListener('click', preProcessAllAudio); // For document audio
+        dom.cancelAudioBtn.addEventListener('click', cancelAudioGeneration);
+        dom.downloadAudioBtn.addEventListener('click', downloadFullAudio);
+        dom.voicePreviewBtn.addEventListener('click', previewSelectedVoice);
+        dom.askQuestionBtn.addEventListener('click', showAskQuestionModal);
+        dom.findKeyConceptsBtn.addEventListener('click', handleFindKeyConcepts);
+        dom.playPauseBtn.addEventListener('click', togglePlayback); // For document audio
+        dom.sidebarToggle.addEventListener('click', toggleSidebar);
+        dom.fullscreenToggle.addEventListener('click', toggleFullScreen);
+        dom.audioPlayer.addEventListener('timeupdate', updateProgress); // For document audio
+        dom.audioPlayer.addEventListener('ended', playNextInPlaylist); // For document audio
+        dom.progressContainer.addEventListener('click', seekInDocument); // For document audio
+        dom.zoomInBtn.addEventListener('click', () => changeZoom(0.25));
+        dom.zoomOutBtn.addEventListener('click', () => changeZoom(-0.25));
+        dom.fitPageBtn.addEventListener('click', fitPageZoom);
+        dom.themeToggle.addEventListener('click', toggleTheme);
+        dom.playbackSpeedBtn.addEventListener('click', changePlaybackSpeed);
+        dom.volumeSlider.addEventListener('input', (e) => dom.audioPlayer.volume = e.target.value);
+        dom.pageJumpInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                jumpToPage();
+            }
+        });
+        dom.pageJumpBtn.addEventListener('click', jumpToPage);
+        dom.modalCloseBtn.addEventListener('click', hideModal);
+        dom.geminiModal.addEventListener('click', (e) => { if (e.target === dom.geminiModal) hideModal(); });
+        dom.askQuestionModalCloseBtn.addEventListener('click', hideAskQuestionModal);
+        dom.askQuestionModal.addEventListener('click', (e) => { if (e.target === dom.askQuestionModal) hideAskQuestionModal(); });
+        dom.chatSendBtn.addEventListener('click', sendChatMessage);
+        dom.chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+        dom.searchBtn.addEventListener('click', searchPdf);
+        dom.searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchPdf();
+            }
+        });
+        dom.prevSearchResultBtn.addEventListener('click', () => navigateSearchResult(-1));
+        dom.nextSearchResultBtn.addEventListener('click', () => navigateSearchResult(1));
+        
+        // Drawing event listeners
+        dom.toggleDrawingBtn.addEventListener('click', toggleDrawingMode);
+        dom.clearDrawingBtn.addEventListener('click', clearDrawings);
+        dom.drawingCanvas.addEventListener('mousedown', startDrawing);
+        dom.drawingCanvas.addEventListener('mousemove', draw);
+        dom.drawingCanvas.addEventListener('mouseup', stopDrawing);
+        dom.drawingCanvas.addEventListener('mouseout', stopDrawing);
+
+        // Customization color pickers
+        dom.wordHighlightColorInput.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--word-highlight-color', hexToRgba(e.target.value, 0.4));
+            if (state.currentWordHighlight) {
+                state.currentWordHighlight.style.backgroundColor = hexToRgba(e.target.value, 0.8);
+            }
+        });
+        dom.selectionBoxColorInput.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--selection-box-color', hexToRgba(e.target.value, 0.2));
+            document.documentElement.style.setProperty('--selection-border-color', hexToRgba(e.target.value, 0.6));
+        });
+        dom.searchHighlightColorInput.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--search-highlight-color', hexToRgba(e.target.value, 0.4));
+            document.documentElement.style.setProperty('--current-search-highlight-color', hexToRgba(e.target.value, 0.8));
+        });
+
+        // Pasted Text Audio Listeners
+        dom.generatePastedAudioBtn.addEventListener('click', generateAudioFromPastedText);
+        dom.playPausePastedAudio.addEventListener('click', togglePastedAudioPlayback);
+        dom.pastedAudioPlayer.addEventListener('ended', () => {
+            state.isPastedAudioPlaying = false;
+            dom.playIconPasted.classList.remove('hidden');
+            dom.pauseIconPasted.classList.add('hidden');
+            dom.pastedAudioStatus.textContent = 'Finished';
+        });
+
+        // Initial setup for customizable colors
+        document.documentElement.style.setProperty('--word-highlight-color', hexToRgba(dom.wordHighlightColorInput.value, 0.4));
+        document.documentElement.style.setProperty('--selection-box-color', hexToRgba(dom.selectionBoxColorInput.value, 0.2));
+        document.documentElement.style.setProperty('--selection-border-color', hexToRgba(dom.selectionBoxColorInput.value, 0.6));
+        document.documentElement.style.setProperty('--search-highlight-color', hexToRgba(dom.searchHighlightColorInput.value, 0.4));
+        document.documentElement.style.setProperty('--current-search-highlight-color', hexToRgba(dom.searchHighlightColorInput.value, 0.8));
+
+
+        // --- Collapsible Section Logic ---
+        function setupCollapsibles() {
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const targetId = header.dataset.target;
+                    const targetContent = document.getElementById(targetId);
+                    const icon = header.querySelector('.collapsible-icon');
+
+                    if (targetContent && icon) {
+                        targetContent.classList.toggle('expanded');
+                        icon.classList.toggle('rotated');
+                    }
+                });
+            });
+        }
+
+        // --- File Handling Functions ---
+        function setupDragAndDrop() {
+            dom.pdfViewer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                dom.pdfViewer.classList.add('border-blue-500', 'border-4', 'border-dashed');
+            });
+
+            dom.pdfViewer.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dom.pdfViewer.classList.remove('border-blue-500', 'border-4', 'border-dashed');
+            });
+
+            dom.pdfViewer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dom.pdfViewer.classList.remove('border-blue-500', 'border-4', 'border-dashed');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        async function handleFile(file) {
+            resetState();
+            state.pdfFile = file;
+            dom.fileNameDisplay.textContent = file.name;
+            dom.playerBar.classList.remove('hidden'); // Player bar always visible after file load
+
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+
+            try {
+                if (fileExtension === 'pdf') {
+                    state.isPdfLoaded = true;
+                    setStatus('Loading PDF...', true);
+                    const typedarray = new Uint8Array(await file.arrayBuffer());
+                    state.pdfDoc = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                    await renderAllPages();
+                    setStatus('Extracting text from PDF...', true);
+                    const visionData = await extractTextFromPdf(file);
+                    processVisionData(visionData);
+                    enablePdfSpecificControls();
+                } else if (fileExtension === 'txt') {
+                    state.isPdfLoaded = false;
+                    setStatus('Loading Text File...', true);
+                    const text = await file.text();
+                    renderPlainText(text);
+                    processPlainText(text);
+                    disablePdfSpecificControls();
+                } else if (fileExtension === 'docx') {
+                    state.isPdfLoaded = false;
+                    setStatus('Loading Word Document...', true);
+                    const arrayBuffer = await file.arrayBuffer();
+                    const { value: { messages } } = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    const text = messages.map(msg => msg.value).join('\n');
+                    renderPlainText(text);
+                    processPlainText(text);
+                    disablePdfSpecificControls();
+                } else {
+                    throw new Error('Unsupported file type. Please upload PDF, TXT, or DOCX.');
+                }
+                
+                const fileId = `${file.name}-${file.size}`;
+                const savedTime = localStorage.getItem(fileId);
+
+                if (savedTime && state.isPdfLoaded) { // Only resume for PDFs with bounding boxes for now
+                    setStatus(`Ready. Resume from ${formatTime(savedTime)}?`, false);
+                    state.resumeTime = parseFloat(savedTime);
+                } else {
+                    setStatus('Ready to generate audio.', false);
+                }
+                
+                dom.generateAudioBtn.disabled = false;
+                dom.askQuestionBtn.disabled = false;
+                dom.findKeyConceptsBtn.disabled = false;
+                dom.voicePreviewBtn.disabled = false;
+                
+            } catch (err) {
+                handleError(err);
+                resetState();
+            } finally {
+                resizeDrawingCanvas();
+            }
+        }
+
+        async function renderAllPages(newScale) {
+            if (newScale) state.pdfScale = newScale;
+            
+            dom.pdfViewer.innerHTML = '';
+            // Re-append drawing canvas and layers in correct order
+            dom.pdfViewer.appendChild(dom.drawingCanvas);
+            dom.pdfViewer.appendChild(dom.highlightLayer);
+            dom.pdfViewer.appendChild(dom.selectionLayer);
+            dom.pdfViewer.appendChild(dom.searchHighlightLayer);
+
+            state.pdfPages = [];
+
+            for (let i = 1; i <= state.pdfDoc.numPages; i++) {
+                const page = await state.pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: state.pdfScale });
+                const canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page-canvas';
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                dom.pdfViewer.appendChild(canvas);
+                state.pdfPages.push({ canvas, viewport });
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            }
+            if (state.searchResults.length > 0) {
+                displaySearchResults();
+            }
+            resizeDrawingCanvas();
+        }
+
+        function renderPlainText(text) {
+            dom.pdfViewer.innerHTML = `<div class="p-8 whitespace-pre-wrap text-lg leading-relaxed dark:text-gray-200">${text}</div>`;
+            // Re-append drawing canvas and layers
+            dom.pdfViewer.appendChild(dom.drawingCanvas);
+            dom.pdfViewer.appendChild(dom.highlightLayer);
+            dom.pdfViewer.appendChild(dom.selectionLayer);
+            dom.pdfViewer.appendChild(dom.searchHighlightLayer);
+
+            dom.highlightLayer.innerHTML = '';
+            dom.selectionLayer.innerHTML = '';
+            dom.searchHighlightLayer.innerHTML = '';
+            state.pdfDoc = null;
+            state.pdfPages = [];
+            resizeDrawingCanvas();
+        }
+
+        function processPlainText(text) {
+            state.textChunks = [];
+            const paragraphs = text.split(/\n\s*\n/);
+            paragraphs.forEach(p => {
+                const cleanedText = p.trim();
+                // Apply header/footer skipping logic to all text chunks
+                if (shouldSkipText(cleanedText)) {
+                    console.log("Skipping:", cleanedText);
+                    return; // Skip this chunk
+                }
+                if (cleanedText.length > 0) {
+                    state.textChunks.push({
+                        text: cleanedText,
+                        boundingBox: null,
+                        words: []
+                    });
+                }
+            });
+        }
+
+        // New function to identify and skip headers/footers
+        function shouldSkipText(text) {
+            const trimmedText = text.trim();
+            // Common patterns for headers/footers/page numbers
+            const pageNumberRegex = /^\s*\d+\s*$/; // Just a number
+            const headerFooterRegex = /^(Chapter\s+\d+|Appendix\s+[A-Z]|\d+\s+Chapter\s+\d+\.\s+.*|Page\s+\d+)$/i; // "Chapter X", "Page X", "90 Chapter 10. Lists"
+            const veryShortLineRegex = /^.{1,10}$/; // Very short lines, could be stray chars or page numbers
+
+            // Check if text matches any skip patterns
+            if (pageNumberRegex.test(trimmedText) || headerFooterRegex.test(trimmedText)) {
+                return true;
+            }
+            // Heuristic: if a line is very short and contains mostly non-alphanumeric characters, it might be a separator or noise
+            if (veryShortLineRegex.test(trimmedText) && !/[a-zA-Z0-9]/.test(trimmedText)) {
+                 return true;
+            }
+            return false;
+        }
+        
+        async function changeZoom(amount) {
+            if (!state.pdfDoc) return;
+            const newScale = Math.max(0.5, state.pdfScale + amount);
+            await renderAllPages(newScale);
+        }
+
+        async function fitPageZoom() {
+            if (!state.pdfDoc) return;
+            const page = await state.pdfDoc.getPage(1);
+            const viewport = page.getViewport({ scale: 1.0 });
+            const viewerWidth = dom.pdfViewer.clientWidth - 40;
+            const newScale = viewerWidth / viewport.width;
+            await renderAllPages(newScale);
+        }
+
+        function processVisionData(visionData) {
+            state.textChunks = [];
+            visionData.responses?.[0]?.responses?.forEach(pageResponse => {
+                pageResponse.fullTextAnnotation?.pages.forEach(page => {
+                    page.blocks.forEach(block => {
+                        block.paragraphs.forEach(paragraph => {
+                            let paragraphText = '';
+                            const wordsInParagraph = [];
+                            paragraph.words.forEach(word => {
+                                let wordText = '';
+                                word.symbols.forEach(symbol => {
+                                    wordText += symbol.text;
+                                    if (symbol.property?.detectedBreak) {
+                                        const breakType = symbol.property.detectedBreak.type;
+                                        if (breakType === 'SPACE' || breakType === 'SURE_SPACE') {
+                                            wordText += ' ';
+                                        }
+                                    }
+                                });
+                                if (wordText.trim().length > 0) {
+                                    wordsInParagraph.push({
+                                        text: wordText.trim(),
+                                        boundingBox: word.boundingBox
+                                    });
+                                    paragraphText += wordText;
+                                }
+                            });
+                            const cleanedText = paragraphText.trim();
+                            // Apply header/footer skipping logic
+                            if (shouldSkipText(cleanedText)) {
+                                console.log("Skipping:", cleanedText);
+                                return; // Skip this chunk
+                            }
+                            if (cleanedText.length > 0) {
+                                state.textChunks.push({
+                                    text: cleanedText,
+                                    boundingBox: paragraph.boundingBox,
+                                    words: wordsInParagraph,
+                                    pageNumber: page.pageNumber || (state.pdfPages.length > 0 ? state.pdfPages.length : 1)
+                                });
+                            }
+                        });
+                    });
+                });
+            });
+        }
+
+        async function preProcessAllAudio() {
+            dom.generateAudioBtn.disabled = true;
+            dom.voiceSelect.disabled = true;
+            dom.downloadAudioBtn.disabled = true;
+            dom.voicePreviewBtn.disabled = true;
+            dom.cancelAudioBtn.classList.remove('hidden');
+            dom.cancelAudioBtn.disabled = false;
+            
+            state.playlist = [];
+            state.totalAudioDuration = 0;
+            let chunksProcessed = 0;
+            let skippedChunks = 0;
+            const audioPromises = [];
+
+            state.abortController = new AbortController();
+            const signal = state.abortController.signal;
+
+            for (const [index, chunk] of state.textChunks.entries()) {
+                if (signal.aborted) {
+                    console.log("Audio generation cancelled before processing all chunks.");
+                    break;
+                }
+
+                audioPromises.push((async () => {
+                    try {
+                        const audioBlob = await textToAudio(chunk.text, dom.voiceSelect.value, signal);
+                        const duration = await getAudioBlobDuration(audioBlob);
+                        return {
+                            chunkIndex: index,
+                            blob: audioBlob,
+                            duration: duration
+                        };
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            console.log(`Chunk ${index + 1} generation aborted.`);
+                        } else {
+                            console.warn(`Skipping chunk ${index + 1} due to error:`, err.message);
+                            skippedChunks++;
+                        }
+                        return null;
+                    }
+                })());
+            }
+
+            const batchSize = 5;
+            const delayBetweenBatches = 1000;
+
+            const allResults = [];
+            for (let i = 0; i < audioPromises.length; i += batchSize) {
+                if (signal.aborted) {
+                    console.log("Audio generation cancelled during batch processing.");
+                    break;
+                }
+                const batch = audioPromises.slice(i, i + batchSize);
+                setStatus(`Processing audio: ${i + 1} - ${Math.min(i + batchSize, audioPromises.length)} / ${state.textChunks.length}`, true);
+                const results = await Promise.all(batch);
+                allResults.push(...results);
+                if (i + batchSize < audioPromises.length && !signal.aborted) {
+                    await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+                }
+            }
+
+            const successfulResults = allResults.filter(result => result !== null);
+            successfulResults.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+            let cumulativeDuration = 0;
+            state.playlist = successfulResults.map(result => {
+                const track = {
+                    blob: result.blob,
+                    chunkIndex: result.chunkIndex,
+                    duration: result.duration,
+                    startTime: cumulativeDuration
+                };
+                cumulativeDuration += track.duration;
+                chunksProcessed++;
+                return track;
+            });
+            state.totalAudioDuration = cumulativeDuration;
+
+            dom.cancelAudioBtn.classList.add('hidden');
+            dom.cancelAudioBtn.disabled = true;
+
+            if (signal.aborted) {
+                setStatus('Audio generation cancelled.', false);
+                dom.generateAudioBtn.disabled = false;
+                dom.voiceSelect.disabled = false;
+                dom.voicePreviewBtn.disabled = false;
+                return;
+            }
+
+            if (chunksProcessed === 0 && state.textChunks.length > 0) {
+                handleError(new Error("Failed to process any audio chunks. Check Vercel logs for details."));
+                dom.generateAudioBtn.disabled = false;
+                dom.voiceSelect.disabled = false;
+                dom.voicePreviewBtn.disabled = false;
+                return;
+            }
+            
+            dom.totalDurationDisplay.textContent = formatTime(state.totalAudioDuration);
+            let statusMessage = `Ready to play.`;
+            if (skippedChunks > 0) {
+                statusMessage += ` (${skippedChunks} chunk(s) skipped due to errors.)`;
+            }
+            setStatus(statusMessage, false);
+
+            dom.playPauseBtn.disabled = false;
+            dom.downloadAudioBtn.disabled = false;
+            dom.voiceSelect.disabled = false;
+            dom.playbackSpeedBtn.disabled = false;
+            dom.voicePreviewBtn.disabled = false;
+
+            if (state.playlist.length > 0) {
+                playAudio();
+            }
+
+            if (state.resumeTime) {
+                seekToTime(state.resumeTime);
+                state.resumeTime = null;
+            }
+        }
+
+        function cancelAudioGeneration() {
+            if (state.abortController) {
+                state.abortController.abort();
+                setStatus('Cancelling audio generation...', true);
+                dom.cancelAudioBtn.disabled = true;
+            }
+        }
+
+        function togglePlayback() {
+            if (state.playlist.length === 0) return;
+            state.isPlaying ? pauseAudio() : playAudio();
+        }
+
+        function playAudio() {
+            state.isPlaying = true;
+            dom.playIcon.classList.add('hidden');
+            dom.pauseIcon.classList.remove('hidden');
+            if (dom.audioPlayer.src && !dom.audioPlayer.ended) {
+                dom.audioPlayer.play();
+            } else {
+                playChunk(state.currentPlaylistIndex || 0);
+            }
+        }
+
+        function pauseAudio() {
+            state.isPlaying = false;
+            dom.playIcon.classList.remove('hidden');
+            dom.pauseIcon.classList.add('hidden');
+            dom.audioPlayer.pause();
+            clearWordHighlight();
+        }
+
+        function playNextInPlaylist() {
+            state.currentPlaylistIndex++;
+            if (state.currentPlaylistIndex < state.playlist.length) {
+                playChunk(state.currentPlaylistIndex);
+            } else {
+                pauseAudio();
+                state.currentPlaylistIndex = 0;
+                if (state.playlist.length > 0) {
+                    dom.audioPlayer.src = URL.createObjectURL(state.playlist[0].blob);
+                } else {
+                    dom.audioPlayer.src = '';
+                }
+                clearWordHighlight();
+            }
+        }
+
+        function playChunk(playlistIndex) {
+            state.currentPlaylistIndex = playlistIndex;
+            const track = state.playlist[playlistIndex];
+            if (!track) return;
+            
+            const audioUrl = URL.createObjectURL(track.blob);
+            dom.audioPlayer.src = audioUrl;
+            if (state.isPlaying) {
+                dom.audioPlayer.play();
+            }
+            // Only highlight words for PDFs
+            if (state.isPdfLoaded && state.textChunks[track.chunkIndex].words.length > 0) {
+                highlightChunkWords(state.textChunks[track.chunkIndex]);
+            } else {
+                clearWordHighlight(); // Clear any old highlights if switching to non-PDF
+            }
+        }
+        
+        function updateProgress() {
+            if (!state.playlist[state.currentPlaylistIndex]) return;
+            
+            const baseTime = state.playlist[state.currentPlaylistIndex].startTime;
+            state.elapsedTimeInDocument = baseTime + dom.audioPlayer.currentTime;
+            
+            dom.currentTimeDisplay.textContent = formatTime(state.elapsedTimeInDocument);
+            
+            if (state.totalAudioDuration > 0) {
+                const progressPercent = (state.elapsedTimeInDocument / state.totalAudioDuration) * 100;
+                dom.progressBar.style.width = `${progressPercent}%`;
+            }
+
+            if (state.pdfFile) {
+                const fileId = `${state.pdfFile.name}-${state.pdfFile.size}`;
+                localStorage.setItem(fileId, state.elapsedTimeInDocument);
+            }
+
+            // Update word highlight based on current time within the chunk (only for PDFs)
+            if (state.isPdfLoaded) {
+                const currentTrack = state.playlist[state.currentPlaylistIndex];
+                if (currentTrack && state.textChunks[currentTrack.chunkIndex]) {
+                    const chunk = state.textChunks[currentTrack.chunkIndex];
+                    const timeIntoCurrentChunk = dom.audioPlayer.currentTime;
+                    const totalChunkDuration = currentTrack.duration;
+
+                    if (chunk.words && chunk.words.length > 0 && totalChunkDuration > 0) {
+                        const timePerWord = totalChunkDuration / chunk.words.length;
+                        const currentWordIndex = Math.floor(timeIntoCurrentChunk / timePerWord);
+                        highlightIndividualWord(chunk, currentWordIndex);
+                        // Auto-scroll to keep the current word in view
+                        const pageInfo = state.pdfPages[chunk.pageNumber - 1];
+                        if (pageInfo && chunk.words[currentWordIndex]) {
+                            const { canvas, viewport } = pageInfo;
+                            const word = chunk.words[currentWordIndex];
+                            const wordY = canvas.offsetTop + word.boundingBox.normalizedVertices[0].y * viewport.height;
+                            const viewerScrollTop = dom.pdfViewer.scrollTop;
+                            const viewerHeight = dom.pdfViewer.clientHeight;
+
+                            if (wordY < viewerScrollTop || wordY > viewerScrollTop + viewerHeight - 100) { // 100px buffer
+                                dom.pdfViewer.scrollTo({ top: wordY - (viewerHeight / 2) + (word.boundingBox.normalizedVertices[2].y - word.boundingBox.normalizedVertices[0].y) * viewport.height / 2, behavior: 'smooth' });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function seekInDocument(event) {
+            if (state.totalAudioDuration === 0) return;
+            
+            const bounds = dom.progressContainer.getBoundingClientRect();
+            const clickPosition = (event.clientX - bounds.left) / bounds.width;
+            const targetTime = clickPosition * state.totalAudioDuration;
+            seekToTime(targetTime);
+        }
+
+        function seekToTime(targetTime) {
+             let cumulativeTime = 0;
+            for(let i = 0; i < state.playlist.length; i++) {
+                const track = state.playlist[i];
+                if (targetTime >= cumulativeTime && targetTime < cumulativeTime + track.duration) {
+                    const timeIntoChunk = targetTime - cumulativeTime;
+                    playChunk(i);
+                    dom.audioPlayer.currentTime = timeIntoChunk;
+                    break;
+                }
+                cumulativeTime += track.duration;
+            }
+        }
+
+        function highlightChunkWords(chunk) {
+            dom.highlightLayer.innerHTML = '';
+            const pageInfo = state.pdfPages[chunk.pageNumber - 1];
+            if (!pageInfo) return;
+            const { canvas, viewport } = pageInfo;
+            const pageTopOffset = canvas.offsetTop;
+
+            chunk.words.forEach(word => {
+                const vertices = word.boundingBox.normalizedVertices;
+                const x = vertices[0].x * viewport.width;
+                const y = vertices[0].y * viewport.height;
+                const width = (vertices[1].x - vertices[0].x) * viewport.width;
+                const height = (vertices[2].y - vertices[0].y) * viewport.height;
+
+                const wordHighlightDiv = document.createElement('div');
+                wordHighlightDiv.className = 'word-highlight';
+                wordHighlightDiv.style.left = `${canvas.offsetLeft + x}px`;
+                wordHighlightDiv.style.top = `${pageTopOffset + y}px`;
+                wordHighlightDiv.style.width = `${width}px`;
+                wordHighlightDiv.style.height = `${height}px`;
+                dom.highlightLayer.appendChild(wordHighlightDiv);
+            });
+
+            const firstWordY = chunk.words[0] ? chunk.words[0].boundingBox.normalizedVertices[0].y * viewport.height : 0;
+            const targetScroll = pageTopOffset + firstWordY - 50;
+            dom.pdfViewer.scrollTo({ top: targetScroll, behavior: 'smooth' });
+        }
+
+        function highlightIndividualWord(chunk, wordIndex) {
+            if (state.currentWordHighlight) {
+                state.currentWordHighlight.classList.remove('current');
+            }
+
+            if (chunk && chunk.words && wordIndex >= 0 && wordIndex < chunk.words.length) {
+                const allWordHighlights = dom.highlightLayer.children;
+                if (allWordHighlights[wordIndex]) {
+                    state.currentWordHighlight = allWordHighlights[wordIndex];
+                    state.currentWordHighlight.classList.add('current');
+                }
+            }
+        }
+
+        function clearWordHighlight() {
+            dom.highlightLayer.innerHTML = '';
+            state.currentWordHighlight = null;
+        }
+
+
+        function toggleSidebar() {
+            dom.mainContainer.classList.toggle('sidebar-hidden');
+            dom.sidebarHideIcon.classList.toggle('hidden');
+            dom.sidebarShowIcon.classList.toggle('hidden');
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                dom.mainContainer.requestFullscreen().catch(err => showModal("Fullscreen Error", `Error: ${err.message}`));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        document.addEventListener('fullscreenchange', () => {
+            const isFullscreen = !!document.fullscreenElement;
+            dom.fullscreenEnterIcon.classList.toggle('hidden', isFullscreen);
+            dom.fullscreenExitIcon.classList.toggle('hidden', !isFullscreen);
+        });
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function setStatus(text, isLoading) {
+            dom.statusText.textContent = text;
+            dom.statusLoader.classList.toggle('hidden', !isLoading);
+            dom.errorSection.classList.add('hidden');
+        }
+
+        function handleError(error) {
+            console.error(error);
+            dom.errorText.textContent = error.message;
+            dom.errorSection.classList.remove('hidden');
+            dom.statusLoader.classList.add('hidden');
+            dom.statusText.textContent = 'An error occurred.';
+        }
+        
+        function resetState() {
+            pauseAudio(); // Pause document audio
+            state.pastedAudioPlayer.pause(); // Pause pasted audio
+            state.pastedAudioPlayer.src = ''; // Clear pasted audio
+            state.isPastedAudioPlaying = false;
+            dom.playIconPasted.classList.remove('hidden');
+            dom.pauseIconPasted.classList.add('hidden');
+            dom.pastedAudioStatus.textContent = 'Ready';
+            dom.pasteTextarea.value = '';
+            dom.generatePastedAudioBtn.disabled = false;
+
+            state = { 
+                ...state, 
+                pdfDoc: null, 
+                pdfFile: null, 
+                pdfPages: [], 
+                pdfScale: 1.5, 
+                textChunks: [], 
+                playlist: [], 
+                currentPlaylistIndex: 0, 
+                totalAudioDuration: 0, 
+                elapsedTimeInDocument: 0, 
+                resumeTime: null,
+                chatMessages: [],
+                searchResults: [],
+                currentSearchResultIndex: -1,
+                currentWordHighlight: null,
+                abortController: null,
+                isPdfLoaded: false,
+            };
+            dom.progressBar.style.width = '0%';
+            dom.currentTimeDisplay.textContent = '0:00';
+            dom.totalDurationDisplay.textContent = '0:00';
+            dom.playPauseBtn.disabled = true;
+            dom.downloadAudioBtn.disabled = true;
+            dom.generateAudioBtn.disabled = true;
+            dom.cancelAudioBtn.classList.add('hidden');
+            dom.cancelAudioBtn.disabled = true;
+            dom.askQuestionBtn.disabled = true;
+            dom.findKeyConceptsBtn.disabled = true;
+            dom.voicePreviewBtn.disabled = true;
+            dom.searchBtn.disabled = true;
+            dom.searchInput.value = '';
+            dom.searchResultsNav.classList.add('hidden');
+            dom.searchHighlightLayer.innerHTML = '';
+            clearDrawings();
+            disablePdfSpecificControls();
+        }
+        
+        function enableViewerControls() {
+            dom.zoomInBtn.disabled = false;
+            dom.zoomOutBtn.disabled = false;
+            dom.fitPageBtn.disabled = false;
+            dom.pageJumpBtn.disabled = false;
+        }
+        
+        function disableViewerControls() {
+            dom.zoomInBtn.disabled = true;
+            dom.zoomOutBtn.disabled = true;
+            dom.fitPageBtn.disabled = true;
+            dom.pageJumpBtn.disabled = true;
+        }
+
+        function enablePdfSpecificControls() {
+            dom.pdfViewer.style.cursor = 'text';
+            dom.searchBtn.disabled = false;
+            dom.searchInput.disabled = false;
+            dom.pageJumpInput.disabled = false;
+            dom.pageJumpBtn.disabled = false;
+        }
+
+        function disablePdfSpecificControls() {
+            dom.pdfViewer.style.cursor = 'default';
+            dom.searchBtn.disabled = true;
+            dom.searchInput.disabled = true;
+            dom.pageJumpInput.disabled = true;
+            dom.pageJumpBtn.disabled = true;
+            dom.searchResultsNav.classList.add('hidden');
+            dom.searchHighlightLayer.innerHTML = '';
+            clearSelection();
+        }
+
+
+        function populateVoices() {
+            const voices = [
+                { name: 'alloy', description: 'Alloy' }, { name: 'echo', description: 'Echo' },
+                { name: 'fable', description: 'Fable' }, { name: 'onyx', description: 'Onyx' },
+                { name: 'nova', description: 'Nova' }, { name: 'shimmer', description: 'Shimmer' }
+            ];
+            dom.voiceSelect.innerHTML = '';
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = voice.description;
+                dom.voiceSelect.appendChild(option);
+            });
+        }
+        
+        async function previewSelectedVoice() {
+            const selectedVoice = dom.voiceSelect.value;
+            const sampleText = "This is a sample of the selected voice.";
+            dom.voicePreviewBtn.disabled = true;
+            try {
+                const audioBlob = await textToAudio(sampleText, selectedVoice);
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const tempAudio = new Audio(audioUrl);
+                tempAudio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    dom.voicePreviewBtn.disabled = false;
+                };
+                tempAudio.onerror = (e) => {
+                    console.error("Audio preview error:", e);
+                    showModal("Audio Preview Error", "Could not play voice preview. Check console for details.");
+                    dom.voicePreviewBtn.disabled = false;
+                };
+                tempAudio.play();
+            } catch (err) {
+                showModal("Audio Preview Error", `Failed to generate voice preview: ${err.message}`);
+                dom.voicePreviewBtn.disabled = false;
+            }
+        }
+
+        function initTheme() {
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                dom.themeLightIcon.classList.add('hidden');
+                dom.themeDarkIcon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                dom.themeLightIcon.classList.remove('hidden');
+                dom.themeDarkIcon.classList.add('hidden');
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            dom.themeLightIcon.classList.toggle('hidden', isDark);
+            dom.themeDarkIcon.classList.toggle('hidden', !isDark);
+        }
+        
+        function changePlaybackSpeed() {
+            state.currentRateIndex = (state.currentRateIndex + 1) % state.playbackRates.length;
+            const newRate = state.playbackRates[state.currentRateIndex];
+            dom.audioPlayer.playbackRate = newRate;
+            dom.playbackSpeedBtn.textContent = `${newRate}x`;
+        }
+
+        function jumpToPage() {
+            if (!state.pdfDoc) {
+                showModal("Feature Not Available", "Page jumping is only available for PDF documents.");
+                return;
+            }
+            const pageNum = parseInt(dom.pageJumpInput.value);
+            if (isNaN(pageNum) || pageNum < 1 || pageNum > state.pdfDoc.numPages) {
+                showModal("Invalid Page Number", `Please enter a page number between 1 and ${state.pdfDoc.numPages}`);
+                return;
+            }
+            const pageCanvas = state.pdfPages[pageNum - 1].canvas;
+            pageCanvas.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function extractTextFromPdf(file) {
+            const base64Pdf = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+
+            const response = await fetch('/api/extract-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pdfData: base64Pdf })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(`Text Extraction Failed: ${err.error}`);
+            }
+            return response.json();
+        }
+        
+        async function textToAudio(text, voiceName, signal) {
+            const response = await fetch('/api/generate-audio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, voice: voiceName }),
+                signal: signal
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(`Audio Generation Failed: ${err.error}`);
+            }
+            return response.blob();
+        }
+
+        async function getGeminiCompletion(prompt) {
+            const response = await fetch('/api/analyze-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(`Gemini Analysis Failed: ${err.error}`);
+            }
+            const result = await response.json();
+            return result.text;
+        }
+
+        async function downloadFullAudio() {
+            if (state.playlist.length === 0) {
+                showModal("Download Error", "No audio has been generated to download.");
+                return;
+            }
+            setStatus("Combining audio files...", true);
+            
+            const audioBlobs = state.playlist.map(track => track.blob);
+            const combinedBlob = new Blob(audioBlobs, { type: 'audio/mpeg' });
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(combinedBlob);
+            const fileName = state.pdfFile ? state.pdfFile.name.split('.').slice(0, -1).join('.') : 'document';
+            link.download = `${fileName}_audio.mp3`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+            setStatus("Ready to play.", false);
+        }
+        
+        function getAudioBlobDuration(blob) {
+            const tempAudio = document.createElement('audio');
+            const url = URL.createObjectURL(blob);
+            return new Promise((resolve) => {
+                tempAudio.addEventListener('loadedmetadata', () => {
+                    URL.revokeObjectURL(url);
+                    resolve(tempAudio.duration);
+                });
+                tempAudio.src = url;
+            });
+        }
+        
+        // --- Text Selection Logic (PDFs only) ---
+        function startSelection(e) {
+            if (!state.isPdfLoaded || state.isDrawingMode) return;
+            
+            // Ensure click is on a PDF canvas or the viewer itself, not other layers
+            if (e.target.classList.contains('pdf-page-canvas') || e.target === dom.pdfViewer) {
+                state.selection.isSelecting = true;
+                const rect = dom.pdfViewer.getBoundingClientRect();
+                state.selection.startX = e.clientX - rect.left;
+                state.selection.startY = e.clientY - rect.top + dom.pdfViewer.scrollTop;
+                clearSelection();
+            }
+        }
+
+        function moveSelection(e) {
+            if (!state.selection.isSelecting || state.isDrawingMode || !state.isPdfLoaded) return;
+            const rect = dom.pdfViewer.getBoundingClientRect();
+            state.selection.endX = e.clientX - rect.left;
+            state.selection.endY = e.clientY - rect.top + dom.pdfViewer.scrollTop;
+            drawSelectionBox();
+        }
+
+        function endSelection(e) {
+            if (!state.selection.isSelecting || state.isDrawingMode || !state.isPdfLoaded) return;
+            state.selection.isSelecting = false;
+            
+            const selectedText = getSelectedText();
+            if (selectedText.trim().length > 5) {
+                showSelectionButtons(selectedText);
+            } else {
+                clearSelection();
+            }
+        }
+
+        function drawSelectionBox() {
+            clearSelection();
+            const { startX, startY, endX, endY } = state.selection;
+            const x = Math.min(startX, endX);
+            const y = Math.min(startY, endY);
+            const width = Math.abs(startX - endX);
+            const height = Math.abs(startY - endY);
+
+            if (width > 5 && height > 5) {
+                const box = document.createElement('div');
+                box.className = 'selection-box';
+                box.style.left = `${x}px`;
+                box.style.top = `${y}px`;
+                box.style.width = `${width}px`;
+                box.style.height = `${height}px`;
+                dom.selectionLayer.appendChild(box);
+            }
+        }
+        
+        function showSelectionButtons(selectedText) {
+            const { endX, endY } = state.selection;
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.style.position = 'absolute';
+            buttonsContainer.style.left = `${endX + 5}px`;
+            buttonsContainer.style.top = `${endY + 5}px`;
+            buttonsContainer.style.display = 'flex';
+            buttonsContainer.style.gap = '8px';
+            buttonsContainer.style.zIndex = '110';
+            buttonsContainer.style.pointerEvents = 'all';
+
+            const createButton = (id, text, onClickHandler) => {
+                const btn = document.createElement('button');
+                btn.id = id;
+                btn.innerHTML = text;
+                btn.className = 'px-3 py-1 bg-indigo-600 text-white text-sm font-semibold rounded-md shadow-lg hover:bg-indigo-700';
+                btn.onclick = () => {
+                    onClickHandler(selectedText);
+                    clearSelection();
+                };
+                return btn;
+            };
+
+            buttonsContainer.appendChild(createButton('explain-btn', '✨ Explain', handleExplain));
+            buttonsContainer.appendChild(createButton('define-btn', '📚 Define', handleDefine));
+            buttonsContainer.appendChild(createButton('translate-btn', '🌐 Translate', handleTranslate));
+            buttonsContainer.appendChild(createButton('copy-btn', '📋 Copy', handleCopySelectedText));
+
+            dom.selectionLayer.appendChild(buttonsContainer);
+        }
+
+        function getSelectedText() {
+            let text = '';
+            const { startX, startY, endX, endY } = state.selection;
+            const selX1 = Math.min(startX, endX);
+            const selY1 = Math.min(startY, endY);
+            const selX2 = Math.max(startX, endX);
+            const selY2 = Math.max(startY, endY);
+
+            for (const chunk of state.textChunks) {
+                if (!chunk.boundingBox || !state.isPdfLoaded) continue; 
+
+                const pageInfo = state.pdfPages[chunk.pageNumber - 1];
+                if (!pageInfo) continue;
+                const { canvas, viewport } = pageInfo;
+                const pageTop = canvas.offsetTop;
+
+                const vertices = chunk.boundingBox.normalizedVertices;
+                const chunkX1 = canvas.offsetLeft + vertices[0].x * viewport.width;
+                const chunkY1 = pageTop + vertices[0].y * viewport.height;
+                const chunkX2 = canvas.offsetLeft + vertices[1].x * viewport.width;
+                const chunkY2 = pageTop + vertices[2].y * viewport.height;
+
+                if (!(chunkX2 < selX1 || chunkX1 > selX2 || chunkY2 < selY1 || chunkY1 > selY2)) {
+                    text += chunk.text + '\n';
+                }
+            }
+            return text;
+        }
+
+        function clearSelection() {
+            dom.selectionLayer.innerHTML = '';
+        }
+
+        async function handleCopySelectedText(selectedText) {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = selectedText;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                setStatus('Text copied to clipboard!', false);
+            } catch (err) {
+                showModal("Copy Error", "Failed to copy text. Please try again or copy manually.");
+                console.error("Copy failed:", err);
+            }
+        }
+        
+        // --- Modal Logic ---
+        
+        async function handleExplain(selectedText) {
+            if (!selectedText) return;
+            showModal("Explanation");
+            try {
+                const prompt = `Explain the following concept in simple terms:\n\n"${selectedText}"`;
+                const explanation = await getGeminiCompletion(prompt);
+                setModalContent(explanation);
+            } catch (err) {
+                setModalContent(`Error: ${err.message}`);
+            }
+        }
+
+        async function handleDefine(selectedText) {
+            if (!selectedText) return;
+            showModal("Definition");
+            try {
+                const prompt = `Provide a concise dictionary definition for the term:\n\n"${selectedText}"`;
+                const definition = await getGeminiCompletion(prompt);
+                setModalContent(definition);
+            } catch (err) {
+                setModalContent(`Error: ${err.message}`);
+            }
+        }
+
+        async function handleTranslate(selectedText) {
+            if (!selectedText) return;
+            showModal("Translation");
+            try {
+                const prompt = `Translate the following text into English:\n\n"${selectedText}"`;
+                const translation = await getGeminiCompletion(prompt);
+                setModalContent(translation);
+            } catch (err) {
+                setModalContent(`Error: ${err.message}`);
+            }
+        }
+        
+        function showModal(title, content = '') {
+            dom.modalTitle.textContent = title;
+            dom.modalText.textContent = content;
+            dom.modalLoader.classList.toggle('hidden', content !== '');
+            dom.geminiModal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            dom.geminiModal.classList.add('hidden');
+        }
+
+        function setModalContent(text) {
+            dom.modalLoader.classList.add('hidden');
+            dom.modalText.textContent = text;
+        }
+
+        // --- New AI Study Tools Logic ---
+
+        function showAskQuestionModal() {
+            dom.askQuestionModal.classList.remove('hidden');
+            dom.chatHistory.innerHTML = '<div class="flex justify-center items-center text-gray-500 dark:text-gray-400 text-sm">Type your question below to get started.</div>';
+            state.chatMessages = [];
+            dom.chatInput.value = '';
+            dom.chatSendBtn.disabled = false;
+            dom.chatInput.focus();
+        }
+
+        function hideAskQuestionModal() {
+            dom.askQuestionModal.classList.add('hidden');
+        }
+
+        async function sendChatMessage() {
+            const userQuestion = dom.chatInput.value.trim();
+            if (userQuestion === '') return;
+
+            addChatMessage(userQuestion, 'user');
+            state.chatMessages.push({ role: 'user', parts: [{ text: userQuestion }] });
+            dom.chatInput.value = '';
+            dom.chatSendBtn.disabled = true;
+
+            const fullText = state.textChunks.map(c => c.text).join('\n');
+            if (!fullText) {
+                addChatMessage("Error: No document text available for context.", 'system-error');
+                dom.chatSendBtn.disabled = false;
+                return;
+            }
+
+            addChatMessage('<div class="loader mx-auto my-2"></div>', 'loading');
+            
+            try {
+                const promptPayload = {
+                    contents: [
+                        { role: 'user', parts: [{ text: `Here is the document content for context:\n"${fullText}"` }] },
+                        ...state.chatMessages
+                    ]
+                };
+                
+                const response = await fetch('/api/analyze-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(promptPayload)
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(`Gemini Analysis Failed: ${err.error}`);
+                }
+                const result = await response.json();
+                const geminiResponse = result.text;
+
+                addChatMessage(geminiResponse, 'gemini');
+                state.chatMessages.push({ role: 'model', parts: [{ text: geminiResponse }] });
+
+            } catch (err) {
+                addChatMessage(`Error: Failed to get response from AI. ${err.message}`, 'system-error');
+            } finally {
+                dom.chatSendBtn.disabled = false;
+                dom.chatHistory.scrollTop = dom.chatHistory.scrollHeight;
+            }
+        }
+
+        function addChatMessage(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `max-w-[70%] p-3 rounded-lg shadow-md ${
+                sender === 'user' ? 'chat-message-user' : 
+                sender === 'gemini' ? 'chat-message-gemini' :
+                sender === 'system-error' ? 'chat-message-system-error' :
+                'chat-message-loading'
+            }`;
+            
+            if (sender === 'loading') {
+                messageBubble.innerHTML = message;
+            } else {
+                messageBubble.textContent = message;
+            }
+
+            if (sender !== 'loading') {
+                const existingLoader = dom.chatHistory.querySelector('.loader');
+                if (existingLoader) {
+                    existingLoader.parentElement.remove();
+                }
+            }
+
+            messageDiv.appendChild(messageBubble);
+            dom.chatHistory.appendChild(messageDiv);
+            dom.chatHistory.scrollTop = dom.chatHistory.scrollHeight;
+        }
+
+        async function handleFindKeyConcepts() {
+            const fullText = state.textChunks.map(c => c.text).join('\n');
+            if (!fullText) {
+                showModal("Key Concepts Error", "No text extracted to find key concepts.");
+                return;
+            }
+            showModal("Key Concepts");
+            try {
+                const prompt = `Identify and list the most important topics, keywords, and definitions from the following text. Present them clearly, perhaps as a bulleted list or distinct sections:\n\n${fullText}`;
+                const keyConcepts = await getGeminiCompletion(prompt);
+                setModalContent(keyConcepts);
+            } catch (err) {
+                setModalContent(`Error: ${err.message}`);
+            }
+        }
+
+        // --- In-Document Text Search Logic (PDFs only) ---
+        function searchPdf() {
+            if (!state.isPdfLoaded) {
+                showModal("Feature Not Available", "Text search is only available for PDF documents.");
+                return;
+            }
+
+            const searchTerm = dom.searchInput.value.trim().toLowerCase();
+            dom.searchHighlightLayer.innerHTML = '';
+            state.searchResults = [];
+            state.currentSearchResultIndex = -1;
+            dom.searchResultsNav.classList.add('hidden');
+            dom.searchResultCount.textContent = '';
+            dom.prevSearchResultBtn.disabled = true;
+            dom.nextSearchResultBtn.disabled = true;
+
+            if (!searchTerm || !state.pdfDoc) {
+                return;
+            }
+
+            for (const chunk of state.textChunks) {
+                const pageInfo = state.pdfPages[chunk.pageNumber - 1];
+                if (!pageInfo) continue;
+                const { canvas, viewport } = pageInfo;
+                const pageTopOffset = canvas.offsetTop;
+
+                for (const word of chunk.words) {
+                    if (word.text.toLowerCase().includes(searchTerm)) {
+                        const vertices = word.boundingBox.normalizedVertices;
+                        const x = vertices[0].x * viewport.width;
+                        const y = vertices[0].y * viewport.height;
+                        const width = (vertices[1].x - vertices[0].x) * viewport.width;
+                        const height = (vertices[2].y - vertices[0].y) * viewport.height;
+
+                        state.searchResults.push({
+                            x: canvas.offsetLeft + x,
+                            y: pageTopOffset + y,
+                            width: width,
+                            height: height,
+                            pageNumber: chunk.pageNumber,
+                            canvas: canvas
+                        });
+                    }
+                }
+            }
+
+            if (state.searchResults.length > 0) {
+                dom.searchResultsNav.classList.remove('hidden');
+                state.currentSearchResultIndex = 0;
+                displaySearchResults();
+                highlightCurrentSearchResult();
+                dom.prevSearchResultBtn.disabled = false;
+                dom.nextSearchResultBtn.disabled = false;
+            } else {
+                dom.searchResultCount.textContent = 'No results found.';
+            }
+        }
+
+        function displaySearchResults() {
+            dom.searchHighlightLayer.innerHTML = '';
+            state.searchResults.forEach((result, index) => {
+                const highlightDiv = document.createElement('div');
+                highlightDiv.className = 'search-highlight';
+                highlightDiv.style.left = `${result.x}px`;
+                highlightDiv.style.top = `${result.y}px`;
+                highlightDiv.style.width = `${result.width}px`;
+                highlightDiv.style.height = `${result.height}px`;
+                highlightDiv.dataset.index = index;
+                dom.searchHighlightLayer.appendChild(highlightDiv);
+            });
+        }
+
+        function highlightCurrentSearchResult() {
+            dom.searchHighlightLayer.querySelectorAll('.search-highlight').forEach(el => {
+                el.classList.remove('current');
+            });
+
+            if (state.currentSearchResultIndex !== -1 && state.searchResults[state.currentSearchResultIndex]) {
+                const currentResult = state.searchResults[state.currentSearchResultIndex];
+                const highlightElement = dom.searchHighlightLayer.querySelector(`[data-index="${state.currentSearchResultIndex}"]`);
+                if (highlightElement) {
+                    highlightElement.classList.add('current');
+                    currentResult.canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    dom.pdfViewer.scrollTo({ top: currentResult.y - (dom.pdfViewer.clientHeight / 2) + (currentResult.height / 2), behavior: 'smooth' });
+                }
+                dom.searchResultCount.textContent = `${state.currentSearchResultIndex + 1} of ${state.searchResults.length}`;
+            }
+        }
+
+        function navigateSearchResult(direction) {
+            if (state.searchResults.length === 0) return;
+
+            state.currentSearchResultIndex += direction;
+            if (state.currentSearchResultIndex < 0) {
+                state.currentSearchResultIndex = state.searchResults.length - 1;
+            } else if (state.currentSearchResultIndex >= state.searchResults.length) {
+                state.currentSearchResultIndex = 0;
+            }
+            highlightCurrentSearchResult();
+        }
+
+        // --- Drawing Functions ---
+        function resizeDrawingCanvas() {
+            // Match drawing canvas size to pdfViewer's scrollable content area
+            dom.drawingCanvas.width = dom.pdfViewer.scrollWidth;
+            dom.drawingCanvas.height = dom.pdfViewer.scrollHeight;
+            // Clear and redraw if necessary after resize
+            if (state.isDrawingMode) {
+                clearDrawings();
+            }
+        }
+
+        function toggleDrawingMode() {
+            state.isDrawingMode = !state.isDrawingMode;
+            dom.drawingCanvas.classList.toggle('active', state.isDrawingMode);
+            dom.toggleDrawingBtn.classList.toggle('bg-red-700', state.isDrawingMode);
+            dom.toggleDrawingBtn.classList.toggle('bg-red-500', !state.isDrawingMode);
+            dom.pdfViewer.style.cursor = state.isDrawingMode ? 'crosshair' : (state.isPdfLoaded ? 'text' : 'default');
+            
+            if (state.isDrawingMode) {
+                clearSelection(); // Clear any active text selection when entering drawing mode
+            }
+            setStatus(state.isDrawingMode ? 'Drawing mode active.' : 'Drawing mode inactive.', false);
+        }
+
+        function startDrawing(e) {
+            if (!state.isDrawingMode) return;
+            state.isDrawing = true;
+            const rect = dom.drawingCanvas.getBoundingClientRect();
+            state.lastX = e.clientX - rect.left;
+            state.lastY = e.clientY - rect.top;
+            state.drawingContext.beginPath();
+            state.drawingContext.moveTo(state.lastX, state.lastY);
+        }
+
+        function draw(e) {
+            if (!state.isDrawingMode || !state.isDrawing) return;
+            const rect = dom.drawingCanvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+
+            state.drawingContext.lineTo(currentX, currentY);
+            state.drawingContext.strokeStyle = dom.wordHighlightColorInput.value;
+            state.drawingContext.lineWidth = 3;
+            state.drawingContext.lineCap = 'round';
+            state.drawingContext.stroke();
+            [state.lastX, state.lastY] = [currentX, currentY];
+        }
+
+        function stopDrawing() {
+            state.isDrawing = false;
+            state.drawingContext.closePath();
+        }
+
+        function clearDrawings() {
+            state.drawingContext.clearRect(0, 0, dom.drawingCanvas.width, dom.drawingCanvas.height);
+            setStatus('All drawings cleared.', false);
+        }
+
+        // --- Pasted Text Audio Functions ---
+        async function generateAudioFromPastedText() {
+            const text = dom.pasteTextarea.value.trim();
+            if (text.length === 0) {
+                dom.pastedAudioStatus.textContent = 'Please paste some text.';
+                return;
+            }
+            dom.generatePastedAudioBtn.disabled = true;
+            dom.playPausePastedAudio.disabled = true;
+            dom.pastedAudioStatus.textContent = 'Generating audio...';
+
+            try {
+                const audioBlob = await textToAudio(text, dom.voiceSelect.value);
+                state.pastedAudioBlob = audioBlob;
+                dom.pastedAudioPlayer.src = URL.createObjectURL(audioBlob);
+                dom.playPausePastedAudio.disabled = false;
+                dom.pastedAudioStatus.textContent = 'Ready to play.';
+                togglePastedAudioPlayback(true); // Auto-play pasted audio
+            } catch (err) {
+                dom.pastedAudioStatus.textContent = `Error: ${err.message}`;
+                console.error("Pasted audio generation failed:", err);
+            } finally {
+                dom.generatePastedAudioBtn.disabled = false;
+            }
+        }
+
+        function togglePastedAudioPlayback(forcePlay = false) {
+            if (!state.pastedAudioBlob) return;
+
+            if (state.isPastedAudioPlaying && !forcePlay) {
+                state.pastedAudioPlayer.pause();
+                state.isPastedAudioPlaying = false;
+                dom.playIconPasted.classList.remove('hidden');
+                dom.pauseIconPasted.classList.add('hidden');
+                dom.pastedAudioStatus.textContent = 'Paused';
+            } else {
+                state.pastedAudioPlayer.play();
+                state.isPastedAudioPlaying = true;
+                dom.playIconPasted.classList.add('hidden');
+                dom.pauseIconPasted.classList.remove('hidden');
+                dom.pastedAudioStatus.textContent = 'Playing...';
+            }
+        }
+
+        // Utility to convert hex to rgba for dynamic CSS variables
+        function hexToRgba(hex, alpha) {
+            let r = 0, g = 0, b = 0;
+            // Handle #RRGGBB
+            if (hex.length === 7) {
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+            }
+            // Handle #RGB
+            else if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            }
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+    </script>
+</body>
+</html>
