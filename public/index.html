@@ -240,6 +240,30 @@
         .collapsible-icon.rotated {
             transform: rotate(90deg);
         }
+        /* New: Circular Play/Pause Button Style */
+        .circular-play-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #3B82F6; /* blue-600 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: background-color 0.2s ease-in-out;
+        }
+        .circular-play-button:hover {
+            background-color: #2563EB; /* blue-700 */
+        }
+        .circular-play-button svg {
+            width: 20px;
+            height: 20px;
+            margin-left: 2px; /* Adjust for triangle optical alignment */
+        }
+        .circular-play-button .pause-icon {
+            margin-left: 0; /* Reset for pause icon */
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
@@ -259,9 +283,9 @@
                 </div>
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
-                        <button id="playPause" class="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400" disabled>
-                            <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4.52 16.89A.5.5 0 005 16.5v-13a.5.5 0 00-.74-.43L.52 7.57a.5.5 0 000 .86l15 6.5z"></path></svg>
-                            <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
+                        <button id="playPause" class="circular-play-button" disabled>
+                            <svg id="playIcon" fill="currentColor" viewBox="0 0 20 20"><path d="M4.52 16.89A.5.5 0 005 16.5v-13a.5.5 0 00-.74-.43L.52 7.57a.5.5 0 000 .86l15 6.5z"></path></svg>
+                            <svg id="pauseIcon" class="hidden pause-icon" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
                         </button>
                         <div class="flex items-center space-x-2">
                              <span id="currentTime" class="text-sm font-mono text-gray-600 dark:text-gray-400">0:00</span>
@@ -319,6 +343,12 @@
                         <input id="fileUpload" type="file" class="hidden" accept=".pdf,.txt,.docx">
                         <p id="fileName" class="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center"></p>
                     </div>
+                    <!-- New Document Button -->
+                    <div class="mb-4">
+                        <button id="newDocumentBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed">
+                            Start New Document
+                        </button>
+                    </div>
                     <!-- Document Reading Controls -->
                     <div class="mb-4">
                         <label for="voiceSelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Voice (OpenAI)</label>
@@ -337,6 +367,17 @@
                             <input type="number" id="page-jump-input" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white dark:bg-gray-800 dark:border-gray-600" min="1">
                             <button id="page-jump-btn" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700" disabled>Go</button>
                         </div>
+                    </div>
+                    <!-- New: Pitch and Rate Sliders -->
+                    <div class="mb-4">
+                        <label for="pitch-slider" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pitch</label>
+                        <input type="range" id="pitch-slider" min="0.5" max="2" step="0.01" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                        <span id="pitch-value" class="text-xs text-gray-500 dark:text-gray-400">1.0x</span>
+                    </div>
+                    <div class="mb-4">
+                        <label for="rate-slider" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Speaking Rate</label>
+                        <input type="range" id="rate-slider" min="0.5" max="2" step="0.01" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                        <span id="rate-value" class="text-xs text-gray-500 dark:text-gray-400">1.0x</span>
                     </div>
                     <!-- Document Audio Controls -->
                     <div class="mb-4">
@@ -367,13 +408,14 @@
                 </div>
             </div>
 
-            <!-- AI Study Tools Section -->
+            <!-- Advanced Study & Interaction Tools Section -->
             <div class="collapsible-section mt-4">
-                <div class="collapsible-header" data-target="ai-tools-content">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">AI Study Tools</h3>
+                <div class="collapsible-header" data-target="advanced-tools-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Advanced Study & Interaction Tools</h3>
                     <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </div>
-                <div id="ai-tools-content" class="collapsible-content expanded">
+                <div id="advanced-tools-content" class="collapsible-content expanded">
+                    <!-- AI Study Tools -->
                     <div class="mb-4">
                         <button id="askQuestionBtn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400" disabled>
                             💬 Ask a Question about this Document
@@ -384,16 +426,7 @@
                             💡 Find Key Concepts
                         </button>
                     </div>
-                </div>
-            </div>
-
-            <!-- In-Document Search Section -->
-            <div class="collapsible-section mt-4">
-                <div class="collapsible-header" data-target="search-content">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">In-Document Search</h3>
-                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                </div>
-                <div id="search-content" class="collapsible-content expanded">
+                    <!-- In-Document Search -->
                     <div class="mb-4">
                         <label for="search-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Document</label>
                         <div class="flex space-x-2 mt-1">
@@ -406,23 +439,17 @@
                             <button id="next-search-result" class="px-3 py-1 text-sm rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50" disabled>Next</button>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Drawing Tools Section -->
-            <div class="collapsible-section mt-4">
-                <div class="collapsible-header" data-target="drawing-tools-content">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Drawing Tools</h3>
-                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                </div>
-                <div id="drawing-tools-content" class="collapsible-content expanded">
-                    <div class="flex space-x-2 mb-2">
-                        <button id="toggleDrawingBtn" class="w-1/2 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-500 hover:bg-red-600">
-                            🖊️ Toggle Drawing
-                        </button>
-                        <button id="clearDrawingBtn" class="w-1/2 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                            🗑️ Clear Drawings
-                        </button>
+                    <!-- Drawing Tools -->
+                    <div class="mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Drawing Tools</h3>
+                        <div class="flex space-x-2 mb-2">
+                            <button id="toggleDrawingBtn" class="w-1/2 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-500 hover:bg-red-600">
+                                🖊️ Toggle Drawing
+                            </button>
+                            <button id="clearDrawingBtn" class="w-1/2 inline-flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                🗑️ Clear Drawings
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -465,14 +492,55 @@
                             Generate Audio from Pasted Text
                         </button>
                     </div>
-                    <div class="flex items-center space-x-2 mb-2">
-                        <button id="playPausePastedAudio" class="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400" disabled>
-                            <svg id="playIconPasted" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4.52 16.89A.5.5 0 005 16.5v-13a.5.5 0 00-.74-.43L.52 7.57a.5.5 0 000 .86l15 6.5z"></path></svg>
-                            <svg id="pauseIconPasted" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
-                        </button>
-                        <span id="pastedAudioStatus" class="text-sm text-gray-600 dark:text-gray-400">Ready</span>
+                    <!-- Pasted Audio Player Bar -->
+                    <div id="pasted-audio-player-bar" class="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-md p-2 mt-4 hidden">
+                        <div id="pasted-progress-container" class="w-full h-2 bg-gray-300 rounded-full cursor-pointer mb-1">
+                            <div id="pasted-progress-bar" class="h-full bg-blue-500 rounded-full" style="width: 0%;"></div>
+                        </div>
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex items-center space-x-2">
+                                <button id="playPausePastedAudio" class="circular-play-button" disabled>
+                                    <svg id="playIconPasted" fill="currentColor" viewBox="0 0 20 20"><path d="M4.52 16.89A.5.5 0 005 16.5v-13a.5.5 0 00-.74-.43L.52 7.57a.5.5 0 000 .86l15 6.5z"></path></svg>
+                                    <svg id="pauseIconPasted" class="hidden pause-icon" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
+                                </button>
+                                <span id="pastedAudioCurrentTime" class="text-xs font-mono text-gray-600 dark:text-gray-400">0:00</span>
+                                <span class="text-xs text-gray-400 dark:text-gray-500">/</span>
+                                <span id="pastedAudioTotalDuration" class="text-xs font-mono text-gray-600 dark:text-gray-400">0:00</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button id="pastedPlaybackSpeed" class="text-xs font-semibold w-10 text-center p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50" disabled>1x</button>
+                                <input type="range" id="pastedVolumeSlider" min="0" max="1" step="0.01" value="1" class="w-16 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                            </div>
+                        </div>
                     </div>
                     <audio id="pastedAudioPlayer" class="hidden"></audio>
+                    <span id="pastedAudioStatus" class="text-sm text-gray-600 dark:text-gray-400 mt-2 block text-center">Ready</span>
+                </div>
+            </div>
+
+            <!-- Recent Documents Section -->
+            <div class="collapsible-section mt-4">
+                <div class="collapsible-header" data-target="recent-documents-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Documents</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="recent-documents-content" class="collapsible-content">
+                    <ul id="recent-documents-list" class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <li class="text-gray-500 dark:text-gray-400">No recent documents.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Table of Contents Section -->
+            <div class="collapsible-section mt-4 hidden" id="toc-section">
+                <div class="collapsible-header" data-target="toc-content">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Table of Contents</h3>
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300 collapsible-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <div id="toc-content" class="collapsible-content">
+                    <ul id="toc-list" class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <!-- TOC items will be dynamically added here -->
+                    </ul>
                 </div>
             </div>
 
@@ -545,6 +613,13 @@
             pauseIconPasted: document.getElementById('pauseIconPasted'),
             pastedAudioStatus: document.getElementById('pastedAudioStatus'),
             pastedAudioPlayer: document.getElementById('pastedAudioPlayer'),
+            pastedAudioPlayerBar: document.getElementById('pasted-audio-player-bar'),
+            pastedProgressBar: document.getElementById('pasted-progress-bar'),
+            pastedProgressContainer: document.getElementById('pasted-progress-container'),
+            pastedAudioCurrentTime: document.getElementById('pastedAudioCurrentTime'),
+            pastedAudioTotalDuration: document.getElementById('pastedAudioTotalDuration'),
+            pastedPlaybackSpeed: document.getElementById('pastedPlaybackSpeed'),
+            pastedVolumeSlider: document.getElementById('pastedVolumeSlider'),
 
             voiceSelect: document.getElementById('voiceSelect'),
             voicePreviewBtn: document.getElementById('voicePreviewBtn'),
@@ -600,6 +675,14 @@
             wordHighlightColorInput: document.getElementById('wordHighlightColor'),
             selectionBoxColorInput: document.getElementById('selectionBoxColor'),
             searchHighlightColorInput: document.getElementById('searchHighlightColor'),
+            newDocumentBtn: document.getElementById('newDocumentBtn'), // New
+            recentDocumentsList: document.getElementById('recent-documents-list'), // New
+            tocSection: document.getElementById('toc-section'), // New
+            tocList: document.getElementById('toc-list'), // New
+            pitchSlider: document.getElementById('pitch-slider'), // New
+            pitchValue: document.getElementById('pitch-value'), // New
+            rateSlider: document.getElementById('rate-slider'), // New
+            rateValue: document.getElementById('rate-value'), // New
         };
 
         let state = {
@@ -630,6 +713,11 @@
             lastY: 0,
             pastedAudioBlob: null, // New: Stores audio for pasted text
             isPastedAudioPlaying: false, // New: State for pasted audio playback
+            pastedPlaybackRates: [0.75, 1, 1.5, 2], // New: Playback rates for pasted audio
+            pastedCurrentRateIndex: 1, // New: Current playback rate index for pasted audio
+            userId: crypto.randomUUID(), // Unique ID for the user for Upstash KV
+            documentId: null, // Unique ID for the current document
+            drawings: [], // Stores drawing paths for persistence
         };
 
         // --- Initialization ---
@@ -639,9 +727,15 @@
         state.drawingContext = dom.drawingCanvas.getContext('2d');
         setupDragAndDrop();
         setupCollapsibles();
+        // Set initial volume for pasted audio player
+        if (dom.pastedVolumeSlider) {
+            dom.pastedAudioPlayer.volume = dom.pastedVolumeSlider.value;
+        }
+        loadRecentDocuments(); // Load recent documents on startup
 
         // --- Event Listeners ---
         dom.fileUploadInput.addEventListener('change', handleFileUpload);
+        dom.newDocumentBtn.addEventListener('click', startNewDocument); // New
         dom.generateAudioBtn.addEventListener('click', preProcessAllAudio);
         dom.cancelAudioBtn.addEventListener('click', cancelAudioGeneration);
         dom.downloadAudioBtn.addEventListener('click', downloadFullAudio);
@@ -660,6 +754,10 @@
         dom.themeToggle.addEventListener('click', toggleTheme);
         dom.playbackSpeedBtn.addEventListener('click', changePlaybackSpeed);
         dom.volumeSlider.addEventListener('input', (e) => dom.audioPlayer.volume = e.target.value);
+        // New pitch and rate slider listeners
+        dom.pitchSlider.addEventListener('input', (e) => dom.pitchValue.textContent = `${parseFloat(e.target.value).toFixed(2)}x`);
+        dom.rateSlider.addEventListener('input', (e) => dom.rateValue.textContent = `${parseFloat(e.target.value).toFixed(2)}x`);
+
         dom.pageJumpInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -709,18 +807,31 @@
         });
         dom.searchHighlightColorInput.addEventListener('input', (e) => {
             document.documentElement.style.setProperty('--search-highlight-color', hexToRgba(e.target.value, 0.4));
-            document.documentElement.style.setProperty('--current-search-highlight-color', hexToRgba(e.target.value, 0.8));
+            if (dom.searchHighlightLayer) {
+                dom.searchHighlightLayer.querySelectorAll('.search-highlight').forEach(el => {
+                    el.style.backgroundColor = hexToRgba(e.target.value, 0.4);
+                });
+                dom.searchHighlightLayer.querySelectorAll('.search-highlight.current').forEach(el => {
+                    el.style.backgroundColor = hexToRgba(e.target.value, 0.8);
+                });
+            }
         });
 
         // Pasted Text Audio Listeners
         dom.generatePastedAudioBtn.addEventListener('click', generateAudioFromPastedText);
         dom.playPausePastedAudio.addEventListener('click', togglePastedAudioPlayback);
+        dom.pastedAudioPlayer.addEventListener('timeupdate', updatePastedAudioProgress);
         dom.pastedAudioPlayer.addEventListener('ended', () => {
             state.isPastedAudioPlaying = false;
             if (dom.playIconPasted) dom.playIconPasted.classList.remove('hidden');
             if (dom.pauseIconPasted) dom.pauseIconPasted.classList.add('hidden');
             if (dom.pastedAudioStatus) dom.pastedAudioStatus.textContent = 'Finished';
+            if (dom.pastedProgressBar) dom.pastedProgressBar.style.width = '100%';
         });
+        if (dom.pastedPlaybackSpeed) dom.pastedPlaybackSpeed.addEventListener('click', changePastedPlaybackSpeed);
+        if (dom.pastedVolumeSlider) dom.pastedVolumeSlider.addEventListener('input', (e) => dom.pastedAudioPlayer.volume = e.target.value);
+        if (dom.pastedProgressContainer) dom.pastedProgressContainer.addEventListener('click', seekInPastedAudio);
+
 
         // Initial setup for customizable colors
         document.documentElement.style.setProperty('--word-highlight-color', hexToRgba(dom.wordHighlightColorInput.value, 0.4));
@@ -744,6 +855,157 @@
                     }
                 });
             });
+        }
+
+        // --- Upstash KV Integration ---
+        // These functions assume you have a backend API route (e.g., /api/kv-store)
+        // that handles communication with your Upstash KV database.
+        // The backend route would use KV_REST_API_URL and KV_REST_API_TOKEN.
+
+        async function saveToKV(key, value) {
+            try {
+                const response = await fetch('/api/kv-store', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key, value })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error(`Failed to save ${key} to KV:`, errorData.error);
+                } else {
+                    console.log(`Successfully saved ${key} to KV.`);
+                }
+            } catch (error) {
+                console.error(`Error saving ${key} to KV:`, error);
+            }
+        }
+
+        async function loadFromKV(key) {
+            try {
+                const response = await fetch(`/api/kv-store?key=${key}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.warn(`Failed to load ${key} from KV:`, errorData.error);
+                    return null;
+                }
+                const data = await response.json();
+                console.log(`Successfully loaded ${key} from KV.`, data.value);
+                return data.value;
+            } catch (error) {
+                console.error(`Error loading ${key} from KV:`, error);
+                return null;
+            }
+        }
+
+        async function deleteFromKV(key) {
+            try {
+                const response = await fetch('/api/kv-store', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error(`Failed to delete ${key} from KV:`, errorData.error);
+                } else {
+                    console.log(`Successfully deleted ${key} from KV.`);
+                }
+            } catch (error) {
+                console.error(`Error deleting ${key} from KV:`, error);
+            }
+        }
+        // --- Document History Functions ---
+        const MAX_RECENT_DOCUMENTS = 5; // Limit to keep storage low
+
+        async function loadRecentDocuments() {
+            const recentDocs = await loadFromKV(`user:${state.userId}:recent_documents`) || [];
+            state.recentDocuments = recentDocs;
+            renderRecentDocuments();
+        }
+
+        async function addRecentDocument(docId, docName) {
+            let recentDocs = await loadFromKV(`user:${state.userId}:recent_documents`) || [];
+            
+            // Remove if already exists to move to top
+            recentDocs = recentDocs.filter(doc => doc.id !== docId);
+
+            recentDocs.unshift({ id: docId, name: docName, timestamp: Date.now() });
+            
+            // Trim to max limit
+            if (recentDocs.length > MAX_RECENT_DOCUMENTS) {
+                recentDocs = recentDocs.slice(0, MAX_RECENT_DOCUMENTS);
+            }
+            state.recentDocuments = recentDocs;
+            await saveToKV(`user:${state.userId}:recent_documents`, recentDocs);
+            renderRecentDocuments();
+        }
+
+        function renderRecentDocuments() {
+            dom.recentDocumentsList.innerHTML = '';
+            if (state.recentDocuments && state.recentDocuments.length > 0) {
+                state.recentDocuments.forEach(doc => {
+                    const listItem = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = '#'; // Prevent default navigation
+                    link.textContent = doc.name;
+                    link.className = 'text-blue-600 hover:underline cursor-pointer';
+                    link.onclick = (e) => {
+                        e.preventDefault();
+                        // Implement loading logic for recent document (re-upload or re-fetch)
+                        // For simplicity, we'll simulate re-uploading the original file if available
+                        // In a real app, you'd store file content or a path to re-fetch.
+                        // For this demo, we'll just log and suggest re-upload.
+                        if (state.pdfFile && state.pdfFile.name === doc.name) {
+                            handleFile(state.pdfFile); // Reload if it's the same file object
+                        } else {
+                            showModal("Reload Document", `To reload "${doc.name}", please upload it again. (Future: direct load from storage)`);
+                        }
+                    };
+                    listItem.appendChild(link);
+                    dom.recentDocumentsList.appendChild(listItem);
+                });
+            } else {
+                dom.recentDocumentsList.innerHTML = '<li class="text-gray-500 dark:text-gray-400">No recent documents.</li>';
+            }
+        }
+
+        // --- New Document Handling ---
+        async function startNewDocument() {
+            let confirmClear = true;
+            if (state.pdfFile || state.drawings.length > 0 || (state.playlist.length > 0 && state.totalAudioDuration > 0)) {
+                confirmClear = await new Promise(resolve => {
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[2000]';
+                    modal.innerHTML = `
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Discard Current Work?</h3>
+                            <p class="text-gray-700 dark:text-gray-300 mb-6">You have unsaved changes (drawings or generated audio). Do you want to clear them and start a new document?</p>
+                            <div class="flex justify-end space-x-3">
+                                <button id="cancelDiscardBtn" class="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">Cancel</button>
+                                <button id="confirmDiscardBtn" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Discard</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+
+                    document.getElementById('cancelDiscardBtn').onclick = () => {
+                        modal.remove();
+                        resolve(false);
+                    };
+                    document.getElementById('confirmDiscardBtn').onclick = () => {
+                        modal.remove();
+                        resolve(true);
+                    };
+                });
+            }
+
+            if (confirmClear) {
+                resetState();
+                dom.fileNameDisplay.textContent = 'No document loaded.';
+                setStatus('Upload a document to get started.', false);
+                dom.playerBar.classList.add('hidden'); // Hide player bar until new doc is loaded
+                if (dom.tocSection) dom.tocSection.classList.add('hidden'); // Hide TOC
+            }
         }
 
         // --- File Handling Functions ---
@@ -781,13 +1043,49 @@
 
         async function handleFile(file) {
             console.log('handleFile: Starting file processing for', file.name);
-            resetState();
+            
+            let confirmLoad = true;
+            if (state.pdfFile || state.drawings.length > 0 || (state.playlist.length > 0 && state.totalAudioDuration > 0)) {
+                 confirmLoad = await new Promise(resolve => {
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[2000]';
+                    modal.innerHTML = `
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Discard Current Work?</h3>
+                            <p class="text-gray-700 dark:text-gray-300 mb-6">You have unsaved changes (drawings or generated audio). Do you want to clear them and load a new document?</p>
+                            <div class="flex justify-end space-x-3">
+                                <button id="cancelDiscardBtn" class="px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">Cancel</button>
+                                <button id="confirmDiscardBtn" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Discard</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+
+                    document.getElementById('cancelDiscardBtn').onclick = () => {
+                        modal.remove();
+                        resolve(false);
+                    };
+                    document.getElementById('confirmDiscardBtn').onclick = () => {
+                        modal.remove();
+                        resolve(true);
+                    };
+                });
+            }
+
+            if (!confirmLoad) {
+                return; // User cancelled loading new document
+            }
+
+            resetState(); // Clear everything before loading new file
             state.pdfFile = file;
             dom.fileNameDisplay.textContent = file.name;
             dom.playerBar.classList.remove('hidden');
 
             const fileExtension = file.name.split('.').pop().toLowerCase();
             console.log('handleFile: Detected extension:', fileExtension);
+
+            // Generate a unique ID for the document
+            state.documentId = `${file.name}-${file.size}-${file.lastModified}`;
 
             try {
                 if (fileExtension === 'pdf') {
@@ -802,7 +1100,6 @@
                         throw new Error("pdf.js library not loaded or initialized correctly.");
                     }
 
-                    // Attempt to load PDF document
                     state.pdfDoc = await pdfjsLib.getDocument({ data: typedarray }).promise.catch(err => {
                         console.error("handleFile: PDF.js getDocument failed:", err);
                         throw new Error(`Failed to load PDF document: ${err.message || err}`);
@@ -815,6 +1112,14 @@
                     const visionData = await extractTextFromPdf(file);
                     processVisionData(visionData);
                     enablePdfSpecificControls();
+                    
+                    // Load TOC if available
+                    const outline = await state.pdfDoc.getOutline();
+                    if (outline && outline.length > 0) {
+                        renderTableOfContents(outline);
+                    } else {
+                        if (dom.tocSection) dom.tocSection.classList.add('hidden');
+                    }
                     console.log('handleFile: PDF processing complete.');
 
                 } else if (fileExtension === 'txt') {
@@ -825,6 +1130,7 @@
                     renderPlainText(text);
                     processPlainText(text);
                     disablePdfSpecificControls();
+                    if (dom.tocSection) dom.tocSection.classList.add('hidden'); // Hide TOC for non-PDFs
                     console.log('handleFile: TXT processing complete.');
                 } else if (fileExtension === 'docx') {
                     console.log('handleFile: Processing as DOCX...');
@@ -839,19 +1145,28 @@
                     renderPlainText(text);
                     processPlainText(text);
                     disablePdfSpecificControls();
+                    if (dom.tocSection) dom.tocSection.classList.add('hidden'); // Hide TOC for non-PDFs
                     console.log('handleFile: DOCX processing complete.');
                 } else {
                     throw new Error('Unsupported file type. Please upload PDF, TXT, or DOCX.');
                 }
                 
-                const fileId = `${file.name}-${file.size}`;
-                const savedTime = localStorage.getItem(fileId);
+                // Save document to recent history
+                await addRecentDocument(state.documentId, file.name);
 
-                if (savedTime && state.isPdfLoaded) {
-                    setStatus(`Ready. Resume from ${formatTime(savedTime)}?`, false);
-                    state.resumeTime = parseFloat(savedTime);
+                // Load saved progress and annotations
+                const savedProgress = await loadFromKV(`user:${state.userId}:document:${state.documentId}:progress`);
+                if (savedProgress) {
+                    setStatus(`Ready. Resume from ${formatTime(savedProgress.time)}?`, false);
+                    state.resumeTime = parseFloat(savedProgress.time);
                 } else {
                     setStatus('Ready to generate audio.', false);
+                }
+
+                const savedDrawings = await loadFromKV(`user:${state.userId}:document:${state.documentId}:drawings`);
+                if (savedDrawings && Array.isArray(savedDrawings)) {
+                    state.drawings = savedDrawings;
+                    redrawAllDrawings();
                 }
                 
                 dom.generateAudioBtn.disabled = false;
@@ -943,7 +1258,7 @@
             if (pageNumberRegex.test(trimmedText) || headerFooterRegex.test(trimmedText)) {
                 return true;
             }
-            if (veryShortLineRegex.test(trimmedText) && !/[a-zA-Z0-9]/.test(trimmedText)) { // Corrected variable name
+            if (veryShortLineRegex.test(trimmedText) && !/[a-zA-Z0-9]/.test(trimmedText)) {
                  return true;
             }
             return false;
@@ -1035,7 +1350,8 @@
 
                 audioPromises.push((async () => {
                     try {
-                        const audioBlob = await textToAudio(chunk.text, dom.voiceSelect.value, signal);
+                        // Pass pitch and rate to the API
+                        const audioBlob = await textToAudio(chunk.text, dom.voiceSelect.value, signal, parseFloat(dom.pitchSlider.value), parseFloat(dom.rateSlider.value));
                         const duration = await getAudioBlobDuration(audioBlob);
                         return {
                             chunkIndex: index,
@@ -1142,6 +1458,13 @@
         function togglePlayback() {
             if (state.playlist.length === 0) return;
             state.isPlaying ? pauseAudio() : playAudio();
+            // Save progress on pause
+            if (!state.isPlaying && state.documentId) {
+                saveToKV(`user:${state.userId}:document:${state.documentId}:progress`, {
+                    page: getCurrentPageNumber(),
+                    time: state.elapsedTimeInDocument
+                });
+            }
         }
 
         function playAudio() {
@@ -1209,9 +1532,12 @@
                 dom.progressBar.style.width = `${progressPercent}%`;
             }
 
-            if (state.pdfFile) {
-                const fileId = `${state.pdfFile.name}-${state.pdfFile.size}`;
-                localStorage.setItem(fileId, state.elapsedTimeInDocument);
+            // Save progress to KV
+            if (state.documentId) {
+                saveToKV(`user:${state.userId}:document:${state.documentId}:progress`, {
+                    page: getCurrentPageNumber(),
+                    time: state.elapsedTimeInDocument
+                });
             }
 
             if (state.isPdfLoaded) {
@@ -1240,6 +1566,18 @@
                     }
                 }
             }
+        }
+
+        function getCurrentPageNumber() {
+            if (!state.isPdfLoaded || !state.pdfPages || state.pdfPages.length === 0) return 1;
+            const viewerScrollTop = dom.pdfViewer.scrollTop;
+            for (let i = 0; i < state.pdfPages.length; i++) {
+                const pageCanvas = state.pdfPages[i].canvas;
+                if (viewerScrollTop < pageCanvas.offsetTop + pageCanvas.clientHeight) {
+                    return i + 1;
+                }
+            }
+            return state.pdfPages.length; // Default to last page if scrolled past all
         }
         
         function seekInDocument(event) {
@@ -1354,24 +1692,27 @@
         }
         
         function resetState() {
-            // Check if audio players exist before interacting with them
+            // Pause and clear main audio
             if (dom.audioPlayer) {
                 dom.audioPlayer.pause();
-                dom.audioPlayer.src = ''; // Clear source
+                dom.audioPlayer.src = '';
             }
+            // Pause and clear pasted audio
             if (dom.pastedAudioPlayer) {
                 dom.pastedAudioPlayer.pause();
-                dom.pastedAudioPlayer.src = ''; // Clear source
+                dom.pastedAudioPlayer.src = '';
             }
             
+            // Reset pasted audio UI
             state.isPastedAudioPlaying = false;
-            // Check if elements exist before trying to access their classList or textContent
             if (dom.playIconPasted) dom.playIconPasted.classList.remove('hidden');
             if (dom.pauseIconPasted) dom.pauseIconPasted.classList.add('hidden');
             if (dom.pastedAudioStatus) dom.pastedAudioStatus.textContent = 'Ready';
             if (dom.pasteTextarea) dom.pasteTextarea.value = '';
             if (dom.generatePastedAudioBtn) dom.generatePastedAudioBtn.disabled = false;
+            if (dom.pastedAudioPlayerBar) dom.pastedAudioPlayerBar.classList.add('hidden');
 
+            // Reset core state variables
             state = { 
                 ...state, 
                 pdfDoc: null, 
@@ -1390,7 +1731,10 @@
                 currentWordHighlight: null,
                 abortController: null,
                 isPdfLoaded: false,
+                drawings: [], // Clear drawings in state
             };
+
+            // Reset main player bar UI
             if (dom.progressBar) dom.progressBar.style.width = '0%';
             if (dom.currentTimeDisplay) dom.currentTimeDisplay.textContent = '0:00';
             if (dom.totalDurationDisplay) dom.totalDurationDisplay.textContent = '0:00';
@@ -1408,8 +1752,11 @@
             if (dom.searchInput) dom.searchInput.value = '';
             if (dom.searchResultsNav) dom.searchResultsNav.classList.add('hidden');
             if (dom.searchHighlightLayer) dom.searchHighlightLayer.innerHTML = '';
-            clearDrawings();
+            
+            clearDrawings(); // Ensure drawing canvas is cleared visually
             disablePdfSpecificControls();
+            if (dom.tocSection) dom.tocSection.classList.add('hidden'); // Hide TOC section
+            if (dom.tocList) dom.tocList.innerHTML = ''; // Clear TOC list
         }
         
         function enableViewerControls() {
@@ -1466,7 +1813,8 @@
             const sampleText = "This is a sample of the selected voice.";
             dom.voicePreviewBtn.disabled = true;
             try {
-                const audioBlob = await textToAudio(sampleText, selectedVoice);
+                // Pass pitch and rate from main sliders for preview consistency
+                const audioBlob = await textToAudio(sampleText, selectedVoice, null, parseFloat(dom.pitchSlider.value), parseFloat(dom.rateSlider.value));
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const tempAudio = new Audio(audioUrl);
                 tempAudio.onended = () => {
@@ -1526,6 +1874,53 @@
             pageCanvas.scrollIntoView({ behavior: 'smooth' });
         }
 
+        // --- Table of Contents Functions ---
+        async function renderTableOfContents(outline) {
+            if (!dom.tocSection || !dom.tocList) return;
+
+            dom.tocList.innerHTML = '';
+            if (outline.length === 0) {
+                dom.tocSection.classList.add('hidden');
+                return;
+            }
+
+            dom.tocSection.classList.remove('hidden');
+
+            for (const item of outline) {
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = '#';
+                link.textContent = item.title;
+                link.className = 'text-blue-600 hover:underline cursor-pointer';
+                link.style.marginLeft = `${(item.level || 0) * 10}px`; // Indent based on level
+
+                link.onclick = async (e) => {
+                    e.preventDefault();
+                    if (state.pdfDoc && item.dest) {
+                        let pageNumber;
+                        if (typeof item.dest === 'string') {
+                            // Named destination
+                            const namedDest = await state.pdfDoc.getDestination(item.dest);
+                            if (namedDest && Array.isArray(namedDest)) {
+                                pageNumber = state.pdfDoc.getPageIndex(namedDest[0]) + 1;
+                            }
+                        } else if (Array.isArray(item.dest)) {
+                            // Array destination [pageRef, ...]
+                            pageNumber = state.pdfDoc.getPageIndex(item.dest[0]) + 1;
+                        }
+
+                        if (pageNumber && pageNumber >= 1 && pageNumber <= state.pdfDoc.numPages) {
+                            const pageCanvas = state.pdfPages[pageNumber - 1].canvas;
+                            pageCanvas.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    }
+                };
+                listItem.appendChild(link);
+                dom.tocList.appendChild(listItem);
+            }
+        }
+
+
         async function extractTextFromPdf(file) {
             const base64Pdf = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1547,11 +1942,11 @@
             return response.json();
         }
         
-        async function textToAudio(text, voiceName, signal) {
+        async function textToAudio(text, voiceName, signal, pitch = 1.0, rate = 1.0) { // Added pitch and rate parameters
             const response = await fetch('/api/generate-audio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, voice: voiceName }),
+                body: JSON.stringify({ text, voice: voiceName, pitch, rate }), // Pass pitch and rate
                 signal: signal
             });
             if (!response.ok) {
@@ -2014,7 +2409,8 @@
             dom.drawingCanvas.height = dom.pdfViewer.scrollHeight;
             // Clear and redraw if necessary after resize
             if (state.isDrawingMode) {
-                clearDrawings();
+                // When canvas resizes, its content is cleared. We need to redraw.
+                redrawAllDrawings();
             }
         }
 
@@ -2026,7 +2422,13 @@
             dom.pdfViewer.style.cursor = state.isDrawingMode ? 'crosshair' : (state.isPdfLoaded ? 'text' : 'default');
             
             if (state.isDrawingMode) {
-                clearSelection();
+                clearSelection(); // Clear any active text selection when entering drawing mode
+                redrawAllDrawings(); // Redraw existing drawings when entering drawing mode
+            } else {
+                // When exiting drawing mode, save current drawings
+                if (state.documentId && state.drawings.length > 0) {
+                    saveToKV(`user:${state.userId}:document:${state.documentId}:drawings`, state.drawings);
+                }
             }
             setStatus(state.isDrawingMode ? 'Drawing mode active.' : 'Drawing mode inactive.', false);
         }
@@ -2039,6 +2441,9 @@
             state.lastY = e.clientY - rect.top;
             state.drawingContext.beginPath();
             state.drawingContext.moveTo(state.lastX, state.lastY);
+
+            // Start a new drawing path
+            state.drawings.push([{ x: state.lastX, y: state.lastY, color: dom.wordHighlightColorInput.value, width: 3 }]);
         }
 
         function draw(e) {
@@ -2053,17 +2458,50 @@
             state.drawingContext.lineCap = 'round';
             state.drawingContext.stroke();
             [state.lastX, state.lastY] = [currentX, currentY];
+
+            // Add point to current drawing path
+            if (state.drawings.length > 0) {
+                state.drawings[state.drawings.length - 1].push({ x: currentX, y: currentY });
+            }
         }
 
         function stopDrawing() {
+            if (!state.isDrawingMode) return; // Only save if in drawing mode
             state.isDrawing = false;
             state.drawingContext.closePath();
+            // Save drawings to KV after each stroke is complete
+            if (state.documentId && state.drawings.length > 0) {
+                saveToKV(`user:${state.userId}:document:${state.documentId}:drawings`, state.drawings);
+            }
         }
 
         function clearDrawings() {
             state.drawingContext.clearRect(0, 0, dom.drawingCanvas.width, dom.drawingCanvas.height);
+            state.drawings = []; // Clear drawings from state
+            if (state.documentId) {
+                deleteFromKV(`user:${state.userId}:document:${state.documentId}:drawings`); // Clear from KV
+            }
             setStatus('All drawings cleared.', false);
         }
+
+        function redrawAllDrawings() {
+            state.drawingContext.clearRect(0, 0, dom.drawingCanvas.width, dom.drawingCanvas.height);
+            state.drawings.forEach(path => {
+                if (path.length > 1) {
+                    state.drawingContext.beginPath();
+                    state.drawingContext.moveTo(path[0].x, path[0].y);
+                    state.drawingContext.strokeStyle = path[0].color || dom.wordHighlightColorInput.value; // Use saved color or current
+                    state.drawingContext.lineWidth = path[0].width || 3; // Use saved width or default
+                    state.drawingContext.lineCap = 'round';
+                    for (let i = 1; i < path.length; i++) {
+                        state.drawingContext.lineTo(path[i].x, path[i].y);
+                    }
+                    state.drawingContext.stroke();
+                    state.drawingContext.closePath();
+                }
+            });
+        }
+
 
         // --- Pasted Text Audio Functions ---
         async function generateAudioFromPastedText() {
@@ -2073,16 +2511,37 @@
                 return;
             }
             dom.generatePastedAudioBtn.disabled = true;
-            dom.playPausePastedAudio.disabled = true;
+            if (dom.playPausePastedAudio) dom.playPausePastedAudio.disabled = true;
             dom.pastedAudioStatus.textContent = 'Generating audio...';
+            if (dom.pastedAudioPlayerBar) dom.pastedAudioPlayerBar.classList.remove('hidden');
 
             try {
-                const audioBlob = await textToAudio(text, dom.voiceSelect.value);
+                // Pass pitch and rate from main sliders for pasted audio
+                const audioBlob = await textToAudio(text, dom.voiceSelect.value, null, parseFloat(dom.pitchSlider.value), parseFloat(dom.rateSlider.value));
                 state.pastedAudioBlob = audioBlob;
                 dom.pastedAudioPlayer.src = URL.createObjectURL(audioBlob);
-                dom.playPausePastedAudio.disabled = false;
-                dom.pastedAudioStatus.textContent = 'Ready to play.';
-                togglePastedAudioPlayback(true);
+                dom.pastedAudioPlayer.load();
+                
+                dom.pastedAudioPlayer.onloadedmetadata = () => {
+                    if (dom.pastedAudioTotalDuration) {
+                        dom.pastedAudioTotalDuration.textContent = formatTime(dom.pastedAudioPlayer.duration);
+                    }
+                    if (dom.playPausePastedAudio) dom.playPausePastedAudio.disabled = false;
+                    if (dom.pastedPlaybackSpeed) dom.pastedPlaybackSpeed.disabled = false;
+                    if (dom.pastedVolumeSlider) dom.pastedVolumeSlider.disabled = false;
+                    dom.pastedAudioStatus.textContent = 'Ready to play.';
+                    togglePastedAudioPlayback(true);
+                };
+
+                dom.pastedAudioPlayer.onerror = (e) => {
+                    dom.pastedAudioStatus.textContent = `Error loading audio: ${e.message || 'Unknown error'}`;
+                    console.error("Pasted audio loading error:", e);
+                    dom.generatePastedAudioBtn.disabled = false;
+                    if (dom.playPausePastedAudio) dom.playPausePastedAudio.disabled = true;
+                    if (dom.pastedPlaybackSpeed) dom.pastedPlaybackSpeed.disabled = true;
+                    if (dom.pastedVolumeSlider) dom.pastedVolumeSlider.disabled = true;
+                };
+
             } catch (err) {
                 dom.pastedAudioStatus.textContent = `Error: ${err.message}`;
                 console.error("Pasted audio generation failed:", err);
@@ -2094,20 +2553,57 @@
         function togglePastedAudioPlayback(forcePlay = false) {
             if (!state.pastedAudioBlob) return;
 
+            if (!dom.pastedAudioPlayer || !dom.playIconPasted || !dom.pauseIconPasted) {
+                console.error("Pasted audio player elements not found in DOM.");
+                return;
+            }
+
             if (state.isPastedAudioPlaying && !forcePlay) {
-                state.pastedAudioPlayer.pause();
+                dom.pastedAudioPlayer.pause();
                 state.isPastedAudioPlaying = false;
-                if (dom.playIconPasted) dom.playIconPasted.classList.remove('hidden');
-                if (dom.pauseIconPasted) dom.pauseIconPasted.classList.add('hidden');
+                dom.playIconPasted.classList.remove('hidden');
+                dom.pauseIconPasted.classList.add('hidden');
                 dom.pastedAudioStatus.textContent = 'Paused';
             } else {
-                state.pastedAudioPlayer.play();
+                dom.pastedAudioPlayer.play();
                 state.isPastedAudioPlaying = true;
-                if (dom.playIconPasted) dom.playIconPasted.classList.add('hidden');
-                if (dom.pauseIconPasted) dom.pauseIconPasted.classList.remove('hidden');
+                dom.playIconPasted.classList.add('hidden');
+                dom.pauseIconPasted.classList.remove('hidden');
                 dom.pastedAudioStatus.textContent = 'Playing...';
             }
         }
+
+        function updatePastedAudioProgress() {
+            if (!dom.pastedAudioPlayer || !dom.pastedProgressBar || !dom.pastedAudioCurrentTime || !dom.pastedAudioTotalDuration) return;
+
+            const currentTime = dom.pastedAudioPlayer.currentTime;
+            const duration = dom.pastedAudioPlayer.duration;
+
+            dom.pastedAudioCurrentTime.textContent = formatTime(currentTime);
+            if (duration > 0) {
+                const progressPercent = (currentTime / duration) * 100;
+                dom.pastedProgressBar.style.width = `${progressPercent}%`;
+            } else {
+                dom.pastedProgressBar.style.width = '0%';
+            }
+        }
+
+        function seekInPastedAudio(event) {
+            if (!dom.pastedAudioPlayer || dom.pastedAudioPlayer.duration === 0) return;
+            
+            const bounds = dom.pastedProgressContainer.getBoundingClientRect();
+            const clickPosition = (event.clientX - bounds.left) / bounds.width;
+            const targetTime = clickPosition * dom.pastedAudioPlayer.duration;
+            dom.pastedAudioPlayer.currentTime = targetTime;
+        }
+
+        function changePastedPlaybackSpeed() {
+            state.pastedCurrentRateIndex = (state.pastedCurrentRateIndex + 1) % state.playbackRates.length; // Use main playbackRates array
+            const newRate = state.playbackRates[state.pastedCurrentRateIndex];
+            dom.pastedAudioPlayer.playbackRate = newRate;
+            dom.pastedPlaybackSpeed.textContent = `${newRate}x`;
+        }
+
 
         // Utility to convert hex to rgba for dynamic CSS variables
         function hexToRgba(hex, alpha) {
@@ -2126,6 +2622,58 @@
             }
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
+
+        // Global Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return; // Don't interfere with typing in input fields
+            }
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault(); // Prevent page scroll
+                    togglePlayback();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (dom.audioPlayer && dom.audioPlayer.currentTime > 0) {
+                        dom.audioPlayer.currentTime = Math.max(0, dom.audioPlayer.currentTime - 5); // Seek back 5 seconds
+                    }
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (dom.audioPlayer && dom.audioPlayer.currentTime < dom.audioPlayer.duration) {
+                        dom.audioPlayer.currentTime = Math.min(dom.audioPlayer.duration, dom.audioPlayer.currentTime + 5); // Seek forward 5 seconds
+                    }
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    if (dom.audioPlayer) {
+                        dom.audioPlayer.volume = Math.min(1, dom.audioPlayer.volume + 0.1);
+                        dom.volumeSlider.value = dom.audioPlayer.volume;
+                    }
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    if (dom.audioPlayer) {
+                        dom.audioPlayer.volume = Math.max(0, dom.audioPlayer.volume - 0.1);
+                        dom.volumeSlider.value = dom.audioPlayer.volume;
+                    }
+                    break;
+                case 'PageUp':
+                    e.preventDefault();
+                    if (dom.pdfViewer) {
+                        dom.pdfViewer.scrollBy({ top: -dom.pdfViewer.clientHeight, behavior: 'smooth' });
+                    }
+                    break;
+                case 'PageDown':
+                    e.preventDefault();
+                    if (dom.pdfViewer) {
+                        dom.pdfViewer.scrollBy({ top: dom.pdfViewer.clientHeight, behavior: 'smooth' });
+                    }
+                    break;
+            }
+        });
 
     </script>
 </body>
